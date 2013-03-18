@@ -1,8 +1,0 @@
-<NodeSpecList>
-<Node>
-<HostName>compute-0-0</Hostname>
-<IP>192.155.123.1</IP>
-<Processors>4</Processors>
-<RAM>4096</RAM>
-<ProcessorSpeed>2.93</ProcessorSpeed>
-</Node>
