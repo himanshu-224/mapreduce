@@ -1,5 +1,0 @@
-<configuration>
-<IPListFile>"/export/mapReduce/ipList.txt"</IPListFile>
-<NodeInfoFile>"/export/mapReduce/nodesInfo.xml"</NodeInfoFile>
-<ChunkMapFile>"/export/mapReduce/chunkMap.xml"</ChunkMapFile>
-</configuration>
