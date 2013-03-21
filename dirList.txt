@@ -1,0 +1,4 @@
+10.1.1.1#export/mapReduce/folder1
+10.1.255.254#export/mapReduce/folder1
+10.1.255.253#export/mapReduce/folder1
+10.1.255.252#export/mapReduce/folder1
