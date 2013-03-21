@@ -1,0 +1,1 @@
+* have to change the #s to semicolons in dirList.txt file when running on actual cluster and also in the extract_IP function of chunkCreation.cpp

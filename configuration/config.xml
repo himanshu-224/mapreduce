@@ -1,0 +1,11 @@
+<Configuration>
+<Paths>
+<IPListFile>"/export/mapReduce/ipList.txt"</IPListFile>
+<NodeInfoFile>"/export/mapReduce/nodesInfo.xml"</NodeInfoFile>
+<ChunkMapFile>"/export/mapReduce/chunkMap.xml"</ChunkMapFile>
+<MountDirectory>"/mpi/mpidata/"</MountDirectory>
+</Paths>
+<Parameters>
+<ChunkSize>1</ChunkSize>
+</Parameters>
+</Configuration>
