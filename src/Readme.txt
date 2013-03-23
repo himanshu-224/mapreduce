@@ -1,11 +1,7 @@
-To compile :
 
-g++ -o test chunkCreation.cpp pugixml.cpp dataStruc.h
-
-to Run : 
-
-./test dirList.txt binary
-
+Create this additional directory "C:\cygwin\export\mapReduce"
+Within this directory copy the files "ipList.txt" and "nodesInfo.xml"
+The above two files were previously present in the main BTPCode folder but will be removed in this commit. Get the files from the previous commits.
 
 Setup the directories required to simulate NFS and the cluster as follows :
 
@@ -21,4 +17,10 @@ Within each of these folders place some text data. Keep it to about 10-15 Kb in 
 
 Note the '#' instead of ':' in the path as windows does not allow ':' in filename.
 
-Special note for Atul : CHECK IT AND ASK ME TODAY ONLY IF THIS CODE DOES NOT RUN. DON'T JUST WAIT FOR THE WHOLE VACATION TO BE OVER AND FINALLY SAY THE CODE DID NOT RUN.
+
+To compile: 
+make -f  make userprog
+
+To run:
+
+./mapreduce dirfile=dirFile.txt type=binary

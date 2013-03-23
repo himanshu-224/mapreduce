@@ -15,12 +15,15 @@
 
 using namespace std;
        
-createChunks::createChunks(int csize,string str,DataType type, string dir="/mnt/mpidata/")
+createChunks::createChunks(int csize,string str,DataType type, string dir, vector<string> flist, vector<string> dlist,int dbg)
     {
         chunkSize=csize;
         dirFile=str;
         dataType=type;
         mntDir=dir;
+		fileList=flist;
+		dirList=dlist;
+		debug=dbg;
     }
     
 vector<ChunkInfo> createChunks::getChunks(string sep="\n")
@@ -278,6 +281,19 @@ int createChunks::getFileSize(string filename)
 
 void createChunks::listDir(string dirFile,string mntDir)
 {
+		int i;
+		for (i=0;i<fileList.size();i++)
+		{
+			FileSize f;
+			f.path= mntDir+fileList[i];
+			f.size=getFileSize(f.path);
+			fileSizes.push_back(f);
+		}
+		for(i=0;i<dirList.size();i++)
+		{
+			string dirName = mntDir+dirList[i];
+            listSingleDir(dirName);
+		}
         ifstream fin (dirFile.c_str());
         char str[256];
         while (fin>>str)
@@ -456,13 +472,16 @@ void createChunks::printStats()
     cout<<endl;
     for(int i=0;i<numNodes;i++)
     {
-            cout<<"For Node : "<<nodeChunks[i].ip<<endl;
-            cout<<"Upper Limit for chunks assigned : "<<nodeChunks[i].upperLimit<<endl;
-            cout<<"Number of chunks assigned : "<<nodeChunks[i].numAssigned<<endl;
-            cout<<"Number of local chunks assigned : "<<nodeChunks[i].localChunks<<endl;
-            cout<<"Speed Rating : "<<nodeChunks[i].rating<<endl;
-            cout<<"Overall Rating : "<<nodeChunks[i].loadFactor<<endl;
-            cout<<endl;
+			if (debug==1)
+			{
+				cout<<"For Node : "<<nodeChunks[i].ip<<endl;
+				cout<<"Upper Limit for chunks assigned : "<<nodeChunks[i].upperLimit<<endl;
+				cout<<"Number of chunks assigned : "<<nodeChunks[i].numAssigned<<endl;
+				cout<<"Number of local chunks assigned : "<<nodeChunks[i].localChunks<<endl;
+				cout<<"Speed Rating : "<<nodeChunks[i].rating<<endl;
+				cout<<"Overall Rating : "<<nodeChunks[i].loadFactor<<endl;
+				cout<<endl;
+			}
     }
 }
 
@@ -578,7 +597,7 @@ void createChunks::generateChunkMap(string nodeInfoFile,string ipListFile, strin
 	saveChunks(outputFile);	
 }
 
-int main(int argc, char** argv)
+/*int main(int argc, char** argv)
 {
 
   if (argc != 3) {
@@ -604,3 +623,4 @@ int main(int argc, char** argv)
   
   return 0;
 }
+*/

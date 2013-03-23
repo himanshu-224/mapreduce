@@ -20,13 +20,16 @@ class createChunks
         DataType dataType;
         vector<ChunkInfo> chunks;
         vector<FileSize> fileSizes;
+		vector<string> fileList;
+		vector<string> dirList;
+		int debug;
 		
 		vector<NodeSpecs> nodes;
         vector<NodeChunkInfo> nodeChunks;
 		
 	public:      
 	
-	createChunks(int csize,string str,DataType type, string dir);
+	createChunks(int csize,string str,DataType type, string dir, vector<string> fileList, vector<string> dirList, int debug);
 	
     void listSingleDir(string dirFile);
 	void listDir(string dirFile, string mntDir);
