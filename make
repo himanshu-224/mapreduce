@@ -1,5 +1,6 @@
 
-userprog: src/objs/userprog.o src/objs/mapReduce.o src/objs/chunkCreation.o src/objs/pugixml.o src/dataStruc.h
+userprog: src/userprog.cpp src/objs/mapReduce.o src/objs/chunkCreation.o src/objs/pugixml.o src/dataStruc.h
+	mpic++ -c src/userprog.cpp -o src/objs/userprog.o
 	mpic++ -o mapreduce src/objs/userprog.o src/objs/mapReduce.o src/objs/chunkCreation.o src/objs/pugixml.o src/dataStruc.h
 
 mapreduce : src/objs/mapReduce.o src/objs/chunkCreation.o src/objs/pugixml.o src/dataStruc.h
@@ -18,8 +19,6 @@ src/objs/chunkCreation.o : src/chunkCreation.cpp src/chunkCreation.h
 src/objs/mapReduce.o : src/mapReduce.cpp src/mapReduce.h
 	mpic++ -c src/mapReduce.cpp -o src/objs/mapReduce.o	
 
-src/objs/userprog.o:
-	mpic++ -c src/userprog.cpp -o src/objs/userprog.o	
 
 		
 

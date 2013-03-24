@@ -385,9 +385,23 @@ void createChunks::getIPList(string inputFile)
     char str[256];
     while (fin>>str)
     {      
-        NodeChunkInfo nci;
-        nci.ip=str;
-        nodeChunks.push_back(nci);
+		int i,flag=0;
+		string thisip(str);
+		for(i=0;i<nodeChunks.size();i++)
+		{
+			if (thisip.compare(nodeChunks[i].ip)==0)
+			{
+				flag=1;
+				break;
+			}
+		}
+		if (flag==0)
+		{
+			NodeChunkInfo nci;
+			nci.ip=str;
+			nci.numAssigned=0;
+			nodeChunks.push_back(nci);
+		}
     }
     fin.close();
 }
@@ -395,9 +409,13 @@ void createChunks::getIPList(string inputFile)
 void createChunks::mapChunks()
 {
     findRating();
+	cout<<"obtained rating of individual nodes\n";
     sortChunksAndNodes();        
+	cout<<"sorted chunks and nodes in order of size and rating respectively\n";
     assignLocalChunks();
+	cout<<"Assigned all the local chunks\n";
     assignRemainingChunks();
+	cout<<"Assigned all the non-local chunks\n";
 }
 
 void createChunks::sortChunksAndNodes() //sort chunks by chunkSize and nodesChunks by best machine in descending order
@@ -443,7 +461,7 @@ void createChunks::assignRemainingChunks()
     {
         if (chunks[i].assignedTo.compare("") ==0)
         {
-            int flag=0;
+			int flag=0;
             for(int j=k+1;j<numNodes;j++)
             {
                 if (nodeChunks[j].numAssigned < nodeChunks[j].upperLimit)
@@ -591,10 +609,15 @@ void createChunks::saveChunks(string outFilePath)
 void createChunks::generateChunkMap(string nodeInfoFile,string ipListFile, string outputFile )
 {
 	getChunks();
+	cout<<"generated list of chunks\n";
 	readNodeSpecs(nodeInfoFile);
+	cout<<"read node specifications\n";
 	getIPList(ipListFile);
+	cout<<"obtained list of nodes to run the job\n";
 	mapChunks();
+	cout<<"assigned all chunks to nodes\n";
 	saveChunks(outputFile);	
+	cout<<"saved the chunkMap to "<<outputFile<<endl;
 }
 
 /*int main(int argc, char** argv)

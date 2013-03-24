@@ -39,6 +39,7 @@ struct FileInfo
 struct ChunkInfo
 {
     string assignedTo;
+	int number;
     int size;
     string majorIP;
     vector<FileInfo> chunk;
