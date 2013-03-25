@@ -2,6 +2,7 @@
 #include<stdio.h>
 #include <mpi.h>
 #include "dataStruc.h"
+#include "logging.h" 
 
 #ifndef MAP_REDUCE
 #define MAP_REDUCE
@@ -13,6 +14,8 @@ private:
 	string ipListFile;
 	string nodeInfoFile;
 	string chunkMapFile;
+    string logFolder;
+    Logging logobj;
 	
 	string dirFile;
 	string mntDir;
@@ -38,9 +41,9 @@ MapReduce(MPI_Comm communicator,int, char**);
 void readDefaults(string configFile);
 void parseArguments(int argc, char **argv);
 void getChunks();
-void error(string);
 void sendRankMapping();
 void getProcChunks(int tprocs, int mypos, string myip);
+void printChunks(vector<ChunkInfo> chunk);
 };
 
 #endif

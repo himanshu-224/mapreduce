@@ -23,4 +23,4 @@ make -f  make userprog
 
 To run:
 
-./mapreduce dirfile=dirFile.txt type=binary
+sudo mpirun -np 8 ./mapreduce dirfile=dirFile.txt type=binary

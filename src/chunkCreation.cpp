@@ -72,7 +72,7 @@ vector<ChunkInfo> createChunks::getChunks(string sep="\n")
             }
         }
         chunks[i].size=csize;
-        cout<<"Size and No. of files in chunk "<<i+1<<" = "<<csize<<" , "<<lim<<endl;
+        //cout<<"Size and No. of files in chunk "<<i+1<<" = "<<csize<<" , "<<lim<<endl;
     }
     return chunks;                 
     
@@ -361,6 +361,7 @@ bool sortNodeFunc(NodeChunkInfo c1, NodeChunkInfo c2)
 
 void createChunks::readNodeSpecs(string xmlFile)
 {
+    cout<<xmlFile<<endl;
     pugi::xml_document doc;
     if (!doc.load_file(xmlFile.c_str()))
 		exit(-1);    

@@ -12,7 +12,6 @@
 using namespace std;
 
 
-void printChunks(vector<ChunkInfo> chunks);
 vector<string> &split(const string &s, char delim, vector<string> &elems) {
     stringstream ss(s);
     string item;
@@ -22,19 +21,9 @@ vector<string> &split(const string &s, char delim, vector<string> &elems) {
     return elems;
 }
 
-
 vector<string> split(string s, char delim) {
     vector<string> elems;
     return split(s.c_str(), delim, elems);
-}
-
-void MapReduce::error(string err)
-{
-	if (debug==1)
-	{
-		cout<<err<<endl;
-	}
-	exit(-1);
 }
 
 void MapReduce::readDefaults(string configFile)
@@ -42,7 +31,7 @@ void MapReduce::readDefaults(string configFile)
 	pugi::xml_document doc;
 	if (!doc.load_file(configFile.c_str()))
 	{
-		cout<<"Could not locate configuration file..Exiting\n";
+		logobj.localLog("Could not locate configuration file..Exiting");
 		exit(-1); 
 	}
 	pugi::xml_node conf = doc.child("Configuration");
@@ -63,13 +52,16 @@ MapReduce::MapReduce(int argc, char** argv)
 	debug=1;
 	mpi_initialized_mr=1;
 	
-	//this part is just for testing
+	/*this part is just for testing
 		nprocs=8;
 		parseArguments(argc,argv);
 		readDefaults("configuration/config.xml");
 		getChunks();	
 		sendRankMapping();
-	//this part is just for testing
+	this part is just for testing*/
+    
+    logobj=Logging();
+    
 	int flag;
 	MPI_Initialized(&flag);	
 	
@@ -81,16 +73,21 @@ MapReduce::MapReduce(int argc, char** argv)
 	}
 	else
 	{
-		error("MPI Environment is already initialized..Exiting\n");
+		logobj.error("MPI Environment is already initialized..Exiting\n");
 	}
+	
 	comm = MPI_COMM_WORLD;
 	MPI_Comm_rank(comm,&rank);
 	MPI_Comm_size(comm,&nprocs);	
-	
+
+    logobj.rank=rank;
+    readDefaults("configuration/config.xml");
+    
+    parseArguments(argc,argv);
+    logobj.debug=debug;
+    
 	if (rank==0)
-	{	
-		parseArguments(argc,argv);
-		readDefaults("configuration/config.xml");
+	{		
 		getChunks();	
 	}
 	MPI_Barrier(comm);
@@ -101,15 +98,21 @@ MapReduce::MapReduce(MPI_Comm communicator,int argc, char** argv)
 {
 	debug=1;
 	mpi_initialized_mr=0;
+    
+    logobj=Logging();
 	
 	comm = communicator;
 	MPI_Comm_rank(comm,&rank);
 	MPI_Comm_size(comm,&nprocs);
 
+    logobj.rank=rank;
+    readDefaults("configuration/config.xml");
+    
+    parseArguments(argc,argv);
+    logobj.debug=debug;
+    
 	if (rank==0)
 	{	
-		parseArguments(argc,argv);
-		readDefaults("configuration/config.xml");
 		getChunks();	
 	}
 	MPI_Barrier(comm);	
@@ -118,6 +121,7 @@ MapReduce::MapReduce(MPI_Comm communicator,int argc, char** argv)
 
 MapReduce::~MapReduce()
 {
+  MPI_Barrier(comm);
   if (mpi_initialized_mr==1) MPI_Finalize();
 }
 
@@ -140,8 +144,9 @@ void MapReduce::parseArguments(int argc, char **argv)
 				dataType=binary;
 			else if (value.compare("text")==0)
 				dataType=text;
-			else
-				error("The datatype "+value+" is not supported...Exiting\n");
+			else{
+				logobj.error("The datatype "+value+" is not supported...Exiting\n");
+            }
 				
 		}
 		else if (key.compare("filelist")==0)
@@ -152,8 +157,14 @@ void MapReduce::parseArguments(int argc, char **argv)
 		{
 			dirList= split(value,',');
 		}		
+        else if (key.compare("debug")==0)
+        {
+            debug= atoi(value.c_str());
+        }   		
 		else
-			error("Invalid input parameter provided...Exiting\n");
+        {
+			logobj.error("Invalid input parameter provided...Exiting\n");
+        }
 	}
 }
 
@@ -173,10 +184,13 @@ void MapReduce::sendRankMapping()
 	for(i=0;i<nprocs;i++)
 		rankMap[i]=(char*)malloc(16*sizeof(char));
 	
-	//just for testing
+	/*just for testing
 	rank=0;
-	//just for testing
+	just for testing*/
 	
+    char *lrankMap;
+    lrankMap=(char*)malloc(nprocs*16*sizeof(char));
+    
 	if (rank==0)
 	{
 		i=0;
@@ -187,11 +201,27 @@ void MapReduce::sendRankMapping()
 			i++;
 		}
 		fin.close();
+
+        for(i=0;i<nprocs*16;i++)
+        {
+            lrankMap[i]=rankMap[i/16][i%16];
+            
+        }   
 	}
-	//MPI_Bcast(rankMap,nprocs*16*sizeof(char),MPI_CHAR,0,comm);
+	
+    
+	MPI_Bcast(lrankMap,nprocs*16,MPI_CHAR,0,comm);
 	vector<int> nodeProcs;
 	char str[16];
+    
+    if (rank!=0)
+        for(i=0;i<nprocs*16;i++)
+        {
+            rankMap[i/16][i%16]=lrankMap[i];        
+        }
+        
 	strcpy(str,rankMap[rank]);
+    
 	for(i=0;i<nprocs;i++)
 	{
 		if (strcmp(str,rankMap[i])==0)
@@ -215,7 +245,10 @@ void MapReduce::getProcChunks(int tprocs, int mypos, string myip)
 {
     pugi::xml_document doc;
     if (!doc.load_file(chunkMapFile.c_str()))
+    {
+        logobj.error("Cannot open the xml file chunkMap.xml "+chunkMapFile);
 		exit(-1);    
+    }
 		
     pugi::xml_node chunkmap = doc.child("CHUNKMAP");
     
@@ -251,28 +284,28 @@ void MapReduce::getProcChunks(int tprocs, int mypos, string myip)
 			curpos++;
 		}	
     }        
-	//printChunks(chunks);
+	printChunks(chunks);
 }
 
-void printChunks(vector<ChunkInfo> chunks)
+void MapReduce::printChunks(vector<ChunkInfo> chunks)
 {
-	cout<<"\nChunks Assigned : "<<endl;
+	logobj.localLog("\nCHUNKS ASSIGNED");
     for(int i=0;i<chunks.size();i++)
     {
-		cout<<"CHUNK\n";
+		logobj.localLog("CHUNK");
         int lim=chunks[i].chunk.size();
-		cout<<chunks[i].number<<endl;
-		cout<<chunks[i].assignedTo<<endl;
-		cout<<chunks[i].majorIP<<endl;
-		cout<<chunks[i].size<<endl;
-		cout<<"\nFiles:\n";
+		logobj.localLog(chunks[i].number);
+		logobj.localLog(chunks[i].assignedTo);
+		logobj.localLog(chunks[i].majorIP);
+		logobj.localLog(chunks[i].size);
+		logobj.localLog("\nFiles");
         for(int j=0;j<lim;j++)
         {
-            cout<<chunks[i].chunk[j].path<<endl;
-			cout<<chunks[i].chunk[j].startByte<<endl;
-			cout<<chunks[i].chunk[j].endByte<<endl;
-			cout<<chunks[i].chunk[j].IP<<endl;
+            logobj.localLog(chunks[i].chunk[j].path);
+			logobj.localLog(chunks[i].chunk[j].startByte);
+			logobj.localLog(chunks[i].chunk[j].endByte);
+			logobj.localLog(chunks[i].chunk[j].IP);
 		}
-		cout<<"\n";
+		logobj.localLog("");
 	}	
 }
