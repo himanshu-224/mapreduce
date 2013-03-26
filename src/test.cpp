@@ -1,33 +1,49 @@
-
-#include<iostream>
-#include<string.h>
-#include<sstream>
-#include<vector>
-
-using namespace std;
-
-vector<string> &split(const string &s, char delim, vector<string> &elems) {
-    stringstream ss(s);
-    string item;
-    while(getline(ss, item, delim)) {
-        elems.push_back(item);
+#include <iostream>
+#include <utility>
+#include <thread>
+#include <chrono>
+#include <functional>
+#include <atomic>
+ 
+ using namespace std;
+void f1()
+{
+    int n=1;
+    for (int i = 0; i < 5; ++i) {
+        std::cout << "Thread " << n << " executing\n";
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
-    return elems;
 }
-
-
-vector<string> split(string s, char delim) {
-    vector<string> elems;
-    return split(s.c_str(), delim, elems);
+ 
+void f2(int& n)
+{
+    for (int i = 0; i < 5; ++i) {
+        std::cout << "Thread 2 executing\n";
+        ++n;
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
 }
-
+ 
+class newClass{
+private :
+    thread t1,t2,t3,t4;
+    
+public:
+    newClass()
+    {
+            int n = 0;
+    t2=thread(f1); // pass by value
+    t3=thread(f2, std::ref(n)); // pass by reference
+    t4=thread(std::move(t3)); // t4 is now running f2(). t3 is no longer a thread
+    std::cout << "Final value of n is " << n << '\n';
+    }
+    ~newClass()
+    {
+        t2.join();
+        t4.join();
+    }
+};
 int main()
 {
-
-vector<string> strs;
-strs= split(",hello,how,are,you",',');
-int i;
-for(i=0;i<strs.size();i++)
-cout<<strs[i]<<endl;
-return 0;
+newClass obj= newClass();
 }

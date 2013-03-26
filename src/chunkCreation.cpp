@@ -72,7 +72,8 @@ vector<ChunkInfo> createChunks::getChunks(string sep="\n")
             }
         }
         chunks[i].size=csize;
-        //cout<<"Size and No. of files in chunk "<<i+1<<" = "<<csize<<" , "<<lim<<endl;
+        chunks[i].number=i+1;
+        cout<<"Size and No. of files in chunk "<<chunks[i].number<<" = "<<csize<<" , "<<lim<<endl;
     }
     return chunks;                 
     
@@ -120,7 +121,16 @@ void createChunks::textFile(string sep)
                 curpos=nfile.tellg();
                 if (strcmp(sep.c_str(),"\n")==0)
                 {
-                    pos=nfile.tellg();
+                    if ((curpos-stByte+1)>chunkSize*1.25)
+                    {
+                        int spacepos= line.find(' ',0)+1;
+                        if (spacepos>0)
+                            pos=prevpos+spacepos;
+                        else
+                            pos=curpos;                        
+                        break;                        
+                    }
+                    pos=curpos;
                     break;
                 }
                 else
@@ -351,6 +361,10 @@ bool sortChunkFunc(ChunkInfo c1, ChunkInfo c2)
 {
         return (c1.size > c2.size) ;
 }
+bool sortChunkFunc1(ChunkInfo c1, ChunkInfo c2)
+{
+        return (c1.number < c2.number) ;
+}
 
 bool sortNodeFunc(NodeChunkInfo c1, NodeChunkInfo c2)
 {
@@ -573,7 +587,7 @@ void createChunks::saveChunks(string outFilePath)
         pugi::xml_node chunk = node.append_child("CHUNK");
 		
 		pugi::xml_node number = chunk.append_child("Number");
-		number.append_child(pugi::node_pcdata).set_value(itos(i+1).c_str());
+		number.append_child(pugi::node_pcdata).set_value(itos(chunks[i].number).c_str());
 		
 		pugi::xml_node assignedTo = chunk.append_child("AssignedTo");
 		assignedTo.append_child(pugi::node_pcdata).set_value(chunks[i].assignedTo.c_str());
@@ -617,6 +631,7 @@ void createChunks::generateChunkMap(string nodeInfoFile,string ipListFile, strin
 	cout<<"obtained list of nodes to run the job\n";
 	mapChunks();
 	cout<<"assigned all chunks to nodes\n";
+    sort(chunks.begin(),chunks.end(),sortChunkFunc1);
 	saveChunks(outputFile);	
 	cout<<"saved the chunkMap to "<<outputFile<<endl;
 }

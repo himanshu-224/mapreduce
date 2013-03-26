@@ -1,6 +1,8 @@
 #include<iostream>
 #include<stdio.h>
 #include <mpi.h>
+#include <queue>
+#include <thread>
 #include "dataStruc.h"
 #include "logging.h" 
 
@@ -19,16 +21,21 @@ private:
 	
 	string dirFile;
 	string mntDir;
+    string myip;
 	DataType dataType;
 	int chunkSize;
 	int numMaps;
 	vector<string> fileList;
 	vector<string> dirList;
 	vector<ChunkInfo> chunks;
+    
+    queue<int> chunksObtained;
+    std::thread t1;
 	
 	int nprocs, rank;
 	MPI_Comm comm;
 	int debug;
+    int chunksCompleted;
 	int mpi_initialized_mr;
 
 	public:
@@ -44,6 +51,11 @@ void getChunks();
 void sendRankMapping();
 void getProcChunks(int tprocs, int mypos, string myip);
 void printChunks(vector<ChunkInfo> chunk);
+
+void islocal();
+void fetchdata(int index1,int index2, int filenum);
+vector<primaryKV> createChunk(int front);
+void createAllChunks();
 };
 
 #endif

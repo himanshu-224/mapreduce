@@ -28,9 +28,15 @@ struct NodeChunkInfo
     int upperLimit;
 };   
 
+struct primaryKV{
+    string key;
+    string value;
+};
+
 struct FileInfo
 {
     string path;
+    string localpath;
     int startByte;
     int endByte;
     string IP;
@@ -42,6 +48,7 @@ struct ChunkInfo
 	int number;
     int size;
     string majorIP;
+    int local;
     vector<FileInfo> chunk;
     
 };
