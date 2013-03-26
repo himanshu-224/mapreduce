@@ -54,8 +54,10 @@ void printChunks(vector<ChunkInfo> chunk);
 
 void islocal();
 void fetchdata(int index1,int index2, int filenum);
+void fetchNonLocal();
 vector<primaryKV> createChunk(int front);
 void createAllChunks();
+
 };
 
 #endif

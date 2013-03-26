@@ -13,8 +13,7 @@
 using namespace std;
 
 string itos(int num);
-void fetchdata(vector<ChunkInfo> &chunks, int index1,int index2, int filenum,int rank);
-void fetchNonLocal(vector<ChunkInfo> &chunks, Logging logobj, string myip, queue<int> &chunksObtained,int rank);
+
 
 vector<string> &split(const string &s, char delim, vector<string> &elems) {
     stringstream ss(s);
@@ -47,53 +46,12 @@ void MapReduce::readDefaults(string configFile)
 	mntDir= paths.child_value("MountDirectory");
 	
 	pugi::xml_node params = conf.child("Parameters");
-	chunkSize = atoi(params.child_value("ChunkSize"));
-	
+	chunkSize = atoi(params.child_value("ChunkSize"));	
 }
 
-void fetchdata(vector<ChunkInfo> &chunks, int index1,int index2, int filenum,int rank)
+void threadFunc1(MapReduce *obj)
 {
-    ifstream fin;
-    ofstream fout;
-    FileInfo fi=chunks[index1].chunk[index2];
-    string outfile="/tmp/rank_"+itos(rank)+"chunk_"+itos(chunks[index1].number)+"file_"+itos(filenum);
-    fi.localpath=outfile;
-    
-    fin.open(fi.path.c_str(), ios::in | ios::binary);
-    fin.seekg(fi.startByte-1, fin.beg);
-    int length = fi.endByte-fi.startByte+1;
-    
-    char *buffer= new char[length];
-    fin.read(buffer,length);
-    
-    fout.open(outfile.c_str(),ios::out|ios::binary);
-    fout<<buffer;
-    
-    fin.close();
-    fout.close();
-}
-
-void fetchNonLocal(vector<ChunkInfo> &chunks, Logging logobj, string myip, queue<int> &chunksObtained,int rank)
-{ 
-    logobj.localLog("Fetching non-local chunks...");
-     for(int i=0;i<chunks.size();i++)
-     {
-         if (chunks[i].local==0)
-         {
-            int lim=chunks[i].chunk.size();
-            int filenum=0;
-            for(int j=0;j<lim;j++)
-            {
-                if (myip.compare(chunks[i].chunk[j].IP)!=0)
-                {
-                    fetchdata(chunks,i,j,filenum,rank);
-                    filenum++;
-                }
-            }             
-         }
-         chunksObtained.push(i);
-     }
-     logobj.localLog("Chunks obtained "+itos(chunksObtained.size()));
+    obj->fetchNonLocal();
 }
 
 MapReduce::MapReduce(int argc, char** argv)
@@ -142,7 +100,7 @@ MapReduce::MapReduce(int argc, char** argv)
 	}
 	MPI_Barrier(comm);
 	sendRankMapping();
-    t1=thread(fetchNonLocal,ref(chunks),logobj,myip,ref(chunksObtained),rank);
+    t1=thread(threadFunc1,this);
     createAllChunks();
 }
 
@@ -440,6 +398,52 @@ vector<primaryKV> MapReduce::createChunk(int front)
     logobj.localLog("Size of chunk "+itos(chunks[front].number)+ " required  = "+itos(chunks[front].size));
     logobj.localLog("Size of chunk "+itos(chunks[front].number)+ " created  = "+itos(crsize));
     return chunk;
+}
+
+
+void MapReduce::fetchdata(int index1, int index2, int filenum)
+{
+    ifstream fin;
+    ofstream fout;
+    FileInfo fi=chunks[index1].chunk[index2];
+    string outfile="/tmp/rank_"+itos(rank)+"chunk_"+itos(chunks[index1].number)+"file_"+itos(filenum);
+    fi.localpath=outfile;
+    
+    fin.open(fi.path.c_str(), ios::in | ios::binary);
+    fin.seekg(fi.startByte-1, fin.beg);
+    int length = fi.endByte-fi.startByte+1;
+    
+    char *buffer= new char[length];
+    fin.read(buffer,length);
+    
+    fout.open(outfile.c_str(),ios::out|ios::binary);
+    fout<<buffer;
+    
+    fin.close();
+    fout.close();
+}
+
+void MapReduce::fetchNonLocal()
+{ 
+    logobj.localLog("Fetching non-local chunks...");
+     for(int i=0;i<chunks.size();i++)
+     {
+         if (chunks[i].local==0)
+         {
+            int lim=chunks[i].chunk.size();
+            int filenum=0;
+            for(int j=0;j<lim;j++)
+            {
+                if (myip.compare(chunks[i].chunk[j].IP)!=0)
+                {
+                    fetchdata(i,j,filenum);
+                    filenum++;
+                }
+            }             
+         }
+         chunksObtained.push(i);
+     }
+     logobj.localLog("Chunks obtained "+itos(chunksObtained.size()));
 }
 
 void MapReduce::createAllChunks()
