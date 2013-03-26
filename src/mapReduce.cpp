@@ -5,6 +5,7 @@
 #include<string.h>
 #include<sstream>
 #include<vector>
+#include<unistd.h>
 
 #include "mapReduce.h"
 #include "chunkCreation.h"
@@ -59,14 +60,6 @@ MapReduce::MapReduce(int argc, char** argv)
 	debug=1;
 	mpi_initialized_mr=1;
     chunksCompleted=0;
-	
-	/*this part is just for testing
-		nprocs=8;
-		parseArguments(argc,argv);
-		readDefaults("configuration/config.xml");
-		getChunks();	
-		sendRankMapping();
-	this part is just for testing*/
     
     logobj=Logging();
     
@@ -101,7 +94,6 @@ MapReduce::MapReduce(int argc, char** argv)
 	MPI_Barrier(comm);
 	sendRankMapping();
     t1=thread(threadFunc1,this);
-    createAllChunks();
 }
 
 MapReduce::MapReduce(MPI_Comm communicator,int argc, char** argv)
@@ -353,6 +345,7 @@ void MapReduce::islocal()
          if (chunks[i].local==1)
              chunksObtained.push(i);
      }
+     //logobj.localLog("Local chunks obtained "+itos(chunksObtained.size()));
          
 }
 
@@ -439,14 +432,15 @@ void MapReduce::fetchNonLocal()
                     fetchdata(i,j,filenum);
                     filenum++;
                 }
-            }             
+            }    
+            chunksObtained.push(i);
          }
-         chunksObtained.push(i);
+         
      }
      logobj.localLog("Chunks obtained "+itos(chunksObtained.size()));
 }
 
-void MapReduce::createAllChunks()
+int MapReduce::map(void(*func)(primaryKV, int&))
 {
     int totalChunks=chunks.size();
     logobj.localLog("Total Chunks "+itos(totalChunks));
@@ -459,12 +453,17 @@ void MapReduce::createAllChunks()
             chunksObtained.pop();
             chunksCompleted++;
             /*Insert Map Code Here*/
-            
+            for(int i=0;i<chunk.size();i++)
+            {
+                int kv;
+                func(chunk[i],kv);
+            }
+            /*Insert map Code here*/
         }
         else
         {
-            //sleep(5);
+            usleep(1000); //sleep for a millisecond;
         }
-        //logobj.localLog("Chunks Completed "+itos(chunksCompleted));
-    }
+    }  
+    return 1;
 }

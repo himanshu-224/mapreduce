@@ -40,7 +40,7 @@ private:
 
 	public:
 //data provided as blocks of string to user suppiled map function
-int map(void(*)(int, string, int*));    
+int map(void(*)(primaryKV, int&));   
 
 MapReduce(int, char**);
 MapReduce(MPI_Comm communicator,int, char**);
@@ -56,7 +56,6 @@ void islocal();
 void fetchdata(int index1,int index2, int filenum);
 void fetchNonLocal();
 vector<primaryKV> createChunk(int front);
-void createAllChunks();
 
 };
 
