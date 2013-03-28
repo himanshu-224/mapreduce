@@ -15,6 +15,7 @@ using namespace std;
 
 string itos(int num);
 
+void RecvData(queue<char> &buffer, int &completed, int recvRank, MPI_Comm comm, Logging &logobj);
 
 vector<string> &split(const string &s, char delim, vector<string> &elems) {
     stringstream ss(s);
@@ -83,17 +84,17 @@ MapReduce::MapReduce(int argc, char** argv)
 
     logobj.rank=rank;
     readDefaults("configuration/config.xml");
+    logobj.debug=debug;    
     
     parseArguments(argc,argv);
-    logobj.debug=debug;
+    /*logobj.debug=debug;
     
 	if (rank==0)
 	{		
 		getChunks();	
 	}
 	MPI_Barrier(comm);
-	sendRankMapping();
-    t1=thread(threadFunc1,this);
+	sendRankMapping();*/
 }
 
 MapReduce::MapReduce(MPI_Comm communicator,int argc, char** argv)
@@ -110,28 +111,20 @@ MapReduce::MapReduce(MPI_Comm communicator,int argc, char** argv)
 
     logobj.rank=rank;
     readDefaults("configuration/config.xml");
-    
-    parseArguments(argc,argv);
-    logobj.debug=debug;
-    
-	if (rank==0)
-	{	
-		getChunks();	
-	}
-	MPI_Barrier(comm);	
-	sendRankMapping();
+
 }
 
 MapReduce::~MapReduce()
 {
   MPI_Barrier(comm);
-  t1.join();
   if (mpi_initialized_mr==1) MPI_Finalize();
 }
 
 void MapReduce::parseArguments(int argc, char **argv)
 {
 	int i;
+    dirFile="";
+    dataType=binary;
 	for(i=1;i<argc;i++)
 	{
 		string str(argv[i]);
@@ -187,10 +180,6 @@ void MapReduce::sendRankMapping()
 	rankMap=(char**)malloc(nprocs*sizeof(char*));
 	for(i=0;i<nprocs;i++)
 		rankMap[i]=(char*)malloc(16*sizeof(char));
-	
-	/*just for testing
-	rank=0;
-	just for testing*/
 	
     char *lrankMap;
     lrankMap=(char*)malloc(nprocs*16*sizeof(char));
@@ -440,8 +429,17 @@ void MapReduce::fetchNonLocal()
      logobj.localLog("Chunks obtained "+itos(chunksObtained.size()));
 }
 
-int MapReduce::map(void(*func)(primaryKV, int&))
+int MapReduce::map(int argc,char **argv, void(*mapfunc)(primaryKV&, int&))
 {
+    parseArguments(argc,argv);
+    if (rank==0)
+    {   
+        getChunks();    
+    }
+    MPI_Barrier(comm);  
+    sendRankMapping();
+    t1=thread(threadFunc1,this);
+    
     int totalChunks=chunks.size();
     logobj.localLog("Total Chunks "+itos(totalChunks));
     while(chunksCompleted!=totalChunks)
@@ -456,7 +454,7 @@ int MapReduce::map(void(*func)(primaryKV, int&))
             for(int i=0;i<chunk.size();i++)
             {
                 int kv;
-                func(chunk[i],kv);
+                mapfunc(chunk[i],kv);
             }
             /*Insert map Code here*/
         }
@@ -465,5 +463,135 @@ int MapReduce::map(void(*func)(primaryKV, int&))
             usleep(1000); //sleep for a millisecond;
         }
     }  
+    t1.join();
     return 1;
+}
+
+/* For the case when no data is provided to the user defined map function. The user is responsible for 
+ * generating appropriate portion of data for its process  using it's process's rank and nprocs*/
+int MapReduce::map(void(*mapfunc)(int nprocs, int rank, int& kv))
+{  
+
+    int kv;
+    mapfunc(nprocs, rank, kv);
+    return 1;
+}
+
+/*For the case when data is not read from the disk but is generated centrally, i.e. by rank 0. The generated 
+ data is then sent to each of the processes*/
+int MapReduce::map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primaryKV&, int&))
+{  
+    queue<char> buffer;
+    int completed=0,flag=1;
+    int kv;
+    if (rank==0)
+    {
+        t1=thread(genfunc,buffer,completed);
+    
+        int curRank=1;/*rank 0 should not be assigned any maps*/
+        while(flag)
+        {
+            char* chunk=new char[chunkSize];
+            if (buffer.size()>=chunkSize){
+                for(int j=0;j<chunkSize;j++)
+                {
+                    chunk[j]=buffer.front();
+                    buffer.pop();                  
+                }   
+                sendData(chunk,chunkSize,curRank);
+                curRank=(curRank+1)%nprocs;
+                if (curRank==0)
+                    curRank++;                  
+            }
+            else if (completed==1){
+                int j=0;
+                while(!buffer.empty())
+                {
+                    chunk[j++]=buffer.front();
+                    buffer.pop();                   
+                }
+                sendData(chunk,j,curRank);
+                flag=0;
+            }
+        }
+        for(int i=1;i<nprocs;i++) /*Notify completion of data transfer*/
+        {
+            MPI_Send(NULL,0,MPI_INT,i,3,comm);
+        }
+        t1.join();
+    }
+    else
+    {
+        t1 = thread(RecvData,buffer, completed, 0, comm, logobj);
+        int i=1;
+        while(flag)
+        {
+            string chunk="";
+            if (buffer.size()>=chunkSize){
+                for(int j=0;j<chunkSize;j++)
+                {
+                    chunk+=buffer.front();
+                    buffer.pop();
+                }
+                
+            }
+            else if (completed==1){
+                while(!buffer.empty())
+                {
+                    chunk+=buffer.front();
+                    buffer.pop();
+                }
+                flag=0;
+            }   
+            if (chunk.compare("")!=0)
+            {
+                primaryKV chk;
+                chk.key=itos((nprocs-1)*i+rank);
+                chk.value=chunk;
+                mapfunc(chk,kv);        
+                i++;
+            }
+      }
+        t1.join();
+    }
+    
+    return 1;
+}
+
+/*MPI_Send vs MPI_Isend?? */
+void MapReduce::sendData(char* chunk,int size, int curRank)
+{
+    MPI_Send(&size,1,MPI_INT,curRank,2,comm);
+    MPI_Send(chunk,size,MPI_CHAR,curRank,1,comm);
+}
+
+void RecvData(queue<char> &buffer, int &completed, int recvRank, MPI_Comm comm, Logging &logobj)
+{
+    int size=-1;
+    MPI_Status status;
+    char *chunk;
+    while(1)
+    {
+        MPI_Probe(0, MPI_ANY_TAG,comm,&status);
+        if (status.MPI_TAG==3) {
+            MPI_Recv(NULL,0,MPI_INT,0,3,comm,&status);
+            completed=1;
+            break;
+        }
+    
+        else if (status.MPI_TAG==2) {
+            MPI_Recv(&size,1,MPI_INT,recvRank,1,comm,&status);
+        }
+        else if (status.MPI_TAG==1) 
+        {
+            if (size==-1) {
+                logobj.error("Receiving data from rank 0 : could not receive size of data...Exiting");
+            }
+            chunk = new char[size];
+            MPI_Recv(chunk,size,MPI_CHAR,recvRank,1,comm,&status);
+            size=-1;
+            for(int i=0;i<size;i++)
+                buffer.push(chunk[i]);
+        }
+    }
 }

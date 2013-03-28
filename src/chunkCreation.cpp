@@ -33,7 +33,6 @@ vector<ChunkInfo> createChunks::getChunks(string sep="\n")
     else if(dataType==text)
         textFile(sep);
         
-    
     for(int i=0;i<chunks.size();i++)
     {
         int lim=chunks[i].chunk.size(), csize=0;
@@ -83,6 +82,8 @@ void createChunks::textFile(string sep)
 {
     listDir(dirFile,mntDir);
     int numFiles=fileSizes.size();
+    if (numFiles>0)
+    {
     int remaining=chunkSize, chunkNo=0, remFileSize=fileSizes[0].size, stByte=1;
     vector<FileInfo> chunkFiles;
     ChunkInfo data;
@@ -186,66 +187,75 @@ void createChunks::textFile(string sep)
         }
 
     }
+    }
     cout<<"No. of Chunks = "<<chunks.size()<<endl;        
 }
 
 void createChunks::binaryFile()
 {
     listDir(dirFile,mntDir);
+    //logobj.log("Created List of Directories");
+    cout<<"Created List of Directories";
     int numFiles=fileSizes.size();
-    int remaining=chunkSize, chunkNo=0, remFileSize=fileSizes[0].size, stByte=1;
-    vector<FileInfo> chunkFiles;
-    ChunkInfo data;
-    chunks.push_back(data);
-    chunks[0].assignedTo="";
-    chunks[0].chunk= chunkFiles;
-    for(int i=0;i<numFiles;)
+    
+    if (numFiles>0)
     {
-        if (remFileSize<remaining)
+        int remaining=chunkSize, chunkNo=0, remFileSize=fileSizes[0].size, stByte=1;
+        vector<FileInfo> chunkFiles;
+        ChunkInfo data;
+    
+        chunks.push_back(data);
+        chunks[0].assignedTo="";
+        chunks[0].chunk= chunkFiles;
+        
+        for(int i=0;i<numFiles;)
         {
-            FileInfo fi;
-            fi.path=fileSizes[i].path;
-            fi.IP= extractIP(fi.path);
-            fi.startByte=stByte;
-            fi.endByte=fileSizes[i].size;
-            if (fi.endByte!=stByte+remFileSize-1)
-                cout<<"Error in Chunk creation in calculation of byte offsets\n";
-            chunks[chunkNo].chunk.push_back(fi);
-            
-            remaining=remaining-remFileSize;   
-            stByte=1;
-            i++;
-            if (i<numFiles)
-                remFileSize=fileSizes[i].size;
-        }
-        else
-        {
-            FileInfo fi;
-            fi.path=fileSizes[i].path;
-            fi.IP= extractIP(fi.path);
-            fi.startByte=stByte;
-            fi.endByte=stByte+remaining-1;
-            chunks[chunkNo].chunk.push_back(fi);
-            
-            remFileSize-=remaining;
-            stByte=stByte+remaining;
-            chunkNo+=1;
-            if (not(remFileSize==0 && i==numFiles-1))
+            if (remFileSize<remaining)
             {
-                vector<FileInfo> chunkFiles;
-                ChunkInfo data;
-                chunks.push_back(data);                
-                chunks[chunkNo].assignedTo="";
-                chunks[chunkNo].chunk= chunkFiles;                
+                FileInfo fi;
+                fi.path=fileSizes[i].path;
+                fi.IP= extractIP(fi.path);
+                fi.startByte=stByte;
+                fi.endByte=fileSizes[i].size;
+                if (fi.endByte!=stByte+remFileSize-1)
+                    cout<<"Error in Chunk creation in calculation of byte offsets\n";
+                chunks[chunkNo].chunk.push_back(fi);
+                
+                remaining=remaining-remFileSize;   
+                stByte=1;
+                i++;cout<<"Created List of Directories";
+                if (i<numFiles)
+                    remFileSize=fileSizes[i].size;
             }
-            remaining=chunkSize;
-        }
-        if (remFileSize==0)
-        {
-            i++;
-            if (i<numFiles)
-                remFileSize=fileSizes[i].size;
-             stByte=1;
+            else    
+            {
+                FileInfo fi;
+                fi.path=fileSizes[i].path;
+                fi.IP= extractIP(fi.path);
+                fi.startByte=stByte;
+                fi.endByte=stByte+remaining-1;
+                chunks[chunkNo].chunk.push_back(fi);
+            
+                remFileSize-=remaining;
+                stByte=stByte+remaining;
+                chunkNo+=1;
+                if (not(remFileSize==0 && i==numFiles-1))
+                {
+                    vector<FileInfo> chunkFiles;
+                    ChunkInfo data;
+                    chunks.push_back(data);                
+                    chunks[chunkNo].assignedTo="";
+                    chunks[chunkNo].chunk= chunkFiles;                
+                }
+                remaining=chunkSize;
+            }   
+            if (remFileSize==0)
+            {
+                i++;
+                if (i<numFiles)
+                    remFileSize=fileSizes[i].size;
+                stByte=1;
+            }
         }
     }
     cout<<"No. of Chunks = "<<chunks.size()<<endl;
@@ -304,6 +314,8 @@ void createChunks::listDir(string dirFile,string mntDir)
 			string dirName = mntDir+dirList[i];
             listSingleDir(dirName);
 		}
+        if (dirFile.compare("")==0)		
+            return;
         ifstream fin (dirFile.c_str());
         char str[256];
         while (fin>>str)
@@ -526,6 +538,7 @@ void createChunks::findRating()
     for(int i=0;i<numNodes;i++)
     {
         int flag=0;
+        nodeChunks[i].upperLimit=0;
         for(int j=0;j<totalNodes;j++)
         {
             if (nodeChunks[i].ip.compare(nodes[j].IP)==0)
