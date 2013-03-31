@@ -18,6 +18,8 @@ class createChunks
         string dirFile;
 		string mntDir;
         DataType dataType;
+        string separator;
+        int fsplit;
         vector<ChunkInfo> chunks;
         vector<FileSize> fileSizes;
 		vector<string> fileList;
@@ -29,7 +31,7 @@ class createChunks
 		
 	public:      
 	
-	createChunks(int csize,string str,DataType type, string dir, vector<string> fileList, vector<string> dirList, int debug);
+	createChunks(int csize,string str,DataType type,string separator,string split, string dir, vector<string> fileList, vector<string> dirList, int debug);
 	
     void listSingleDir(string dirFile);
 	void listDir(string dirFile, string mntDir);
@@ -39,6 +41,7 @@ class createChunks
     string extractIP(string str);
 	
 	vector<ChunkInfo> getChunks(string);
+    void noSplit();
 	void textFile(string sep);
 	void binaryFile();
 	
@@ -48,6 +51,8 @@ class createChunks
 	void sortChunksAndNodes();
 	void assignLocalChunks();
 	void assignRemainingChunks();
+    void assignLocalChunksNoSplit();
+    void assignRemainingChunksNoSplit();
 	void printStats();
 	void findRating();
 	

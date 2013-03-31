@@ -24,8 +24,10 @@ struct NodeChunkInfo
     float loadFactor;
     int numProcs;
     int numAssigned;
+    int sizeAssigned;
 	int localChunks;
     int upperLimit;
+    int sizeLimit;
 };   
 
 struct primaryKV{

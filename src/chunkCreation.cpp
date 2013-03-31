@@ -14,21 +14,58 @@
 #include "chunkCreation.h"
 
 using namespace std;
+
+bool sortChunkFunc(ChunkInfo c1, ChunkInfo c2)
+{
+        return (c1.size > c2.size) ;
+}
+
+bool sortChunkFuncAsc(ChunkInfo c1, ChunkInfo c2)
+{
+        return (c1.size < c2.size) ;
+}
+
+bool sortChunkFunc1(ChunkInfo c1, ChunkInfo c2)
+{
+        return (c1.number < c2.number) ;
+}
+
+bool sortNodeFunc(NodeChunkInfo c1, NodeChunkInfo c2)
+{
+        return (c1.rating > c2.rating) ;
+}
+bool sortNodeFunc1(NodeChunkInfo c1, NodeChunkInfo c2)
+{
+        return ((c1.sizeLimit-c1.sizeAssigned) > (c2.sizeLimit-c2.sizeAssigned)) ;
+}
+bool sortbyFileSize(FileSize f1, FileSize f2)
+{
+    return (f1.size< f2.size);
+}
+
        
-createChunks::createChunks(int csize,string str,DataType type, string dir, vector<string> flist, vector<string> dlist,int dbg)
+createChunks::createChunks(int csize,string str,DataType type, string sep,string split,string dir, vector<string> flist, vector<string> dlist,int dbg)
     {
         chunkSize=csize;
         dirFile=str;
         dataType=type;
+        separator=sep;
+        if (split.compare("yes")==0)
+            fsplit=1;
+        else
+            fsplit=0;
         mntDir=dir;
 		fileList=flist;
 		dirList=dlist;
 		debug=dbg;
+        
     }
     
 vector<ChunkInfo> createChunks::getChunks(string sep="\n")
 {
-    if (dataType==binary)
+    if (not fsplit)
+        noSplit();
+    else if (dataType==binary)
         binaryFile();
     else if(dataType==text)
         textFile(sep);
@@ -78,6 +115,86 @@ vector<ChunkInfo> createChunks::getChunks(string sep="\n")
     
 }
 
+void createChunks::noSplit()
+{
+    listDir(dirFile,mntDir);
+    int numFiles=fileSizes.size();
+    if (numFiles<=0)
+    {
+        cout<<"No. of chunks = " <<chunks.size()<<endl;
+        return;
+    }
+    sort(fileSizes.begin(),fileSizes.end(),sortbyFileSize);
+    int cursize=0,j=0;
+    
+    ChunkInfo newChunk;
+    vector<FileInfo> files;
+    newChunk.chunk=files;
+    chunks.push_back(newChunk);
+    
+    for(int i=0;i<numFiles;i++)
+    {
+        FileInfo fi;
+        fi.path=fileSizes[i].path;
+        fi.IP= extractIP(fi.path);
+        fi.startByte=0;
+        fi.endByte=fileSizes[i].size;        
+        
+        cursize=cursize+fileSizes[i].size;
+        if (cursize>=chunkSize && cursize <= 1.25*chunkSize)
+        {
+            chunks[j].size=cursize;            
+            chunks[j].chunk.push_back(fi);
+            if (i<numFiles-1)
+            {
+                ChunkInfo newChunk;
+                vector<FileInfo> files;
+                newChunk.chunk=files;
+                chunks.push_back(newChunk);
+            }
+            
+            j++;
+            cursize=0;
+        }
+        else if (cursize<chunkSize)
+        {
+            chunks[j].chunk.push_back(fi);            
+        }
+        else 
+        {
+            int prevsize=cursize-fileSizes[i].size;
+            if (prevsize<0.75*cursize)
+            {
+                chunks[j].size=cursize;            
+                chunks[j].chunk.push_back(fi);
+                if (i<numFiles-1)
+                {
+                    ChunkInfo newChunk;
+                    vector<FileInfo> files;
+                    newChunk.chunk=files;
+                    chunks.push_back(newChunk);
+                }
+                
+                j++;
+                cursize=0;                
+            }
+            else
+            {
+                chunks[j].size=prevsize;           
+                ChunkInfo newChunk;
+                vector<FileInfo> files;
+                newChunk.chunk=files;
+                chunks.push_back(newChunk);
+
+                j++;
+                i--;
+                cursize=0;                 
+            }
+            
+        }
+    }
+    cout<<"No. of chunks = " <<chunks.size()<<endl;
+}
 void createChunks::textFile(string sep)
 {
     listDir(dirFile,mntDir);
@@ -369,22 +486,6 @@ int createChunks::getPatternPosition(string line,string sep)
 
 /*Chunk Map part starts from here*/
 /*helper functions*/
-bool sortChunkFunc(ChunkInfo c1, ChunkInfo c2)
-{
-        return (c1.size > c2.size) ;
-}
-bool sortChunkFunc1(ChunkInfo c1, ChunkInfo c2)
-{
-        return (c1.number < c2.number) ;
-}
-
-bool sortNodeFunc(NodeChunkInfo c1, NodeChunkInfo c2)
-{
-        return (c1.rating > c2.rating) ;
-}
-
-
-
 void createChunks::readNodeSpecs(string xmlFile)
 {
     cout<<xmlFile<<endl;
@@ -427,6 +528,7 @@ void createChunks::getIPList(string inputFile)
 			NodeChunkInfo nci;
 			nci.ip=str;
 			nci.numAssigned=0;
+            nci.sizeAssigned=0;
 			nodeChunks.push_back(nci);
 		}
     }
@@ -439,9 +541,15 @@ void createChunks::mapChunks()
 	cout<<"obtained rating of individual nodes\n";
     sortChunksAndNodes();        
 	cout<<"sorted chunks and nodes in order of size and rating respectively\n";
-    assignLocalChunks();
+    if (fsplit)
+        assignLocalChunks();
+    else
+        assignLocalChunksNoSplit();
 	cout<<"Assigned all the local chunks\n";
-    assignRemainingChunks();
+    if (fsplit)
+        assignRemainingChunks();
+    else
+        assignRemainingChunksNoSplit();
 	cout<<"Assigned all the non-local chunks\n";
 }
 
@@ -466,6 +574,7 @@ void createChunks::assignLocalChunks()
                 {
                     chunks[i].assignedTo=nodeChunks[j].ip;
                     nodeChunks[j].numAssigned++;
+                    nodeChunks[j].sizeAssigned+=chunks[i].size;
                     numChunksLeft-=1;
                     break;
                 }
@@ -475,6 +584,34 @@ void createChunks::assignLocalChunks()
     }
             for(int j=0;j<numNodes;j++)
                     nodeChunks[j].localChunks= nodeChunks[j].numAssigned;
+}
+
+
+void createChunks::assignLocalChunksNoSplit()
+{
+    int numNodes=nodeChunks.size();
+    int numChunks=chunks.size();
+    sort(chunks.begin(),chunks.end(),sortChunkFuncAsc);
+    
+    for(int i=0;i<numChunks;i++)
+    {
+        for(int j=0;j<numNodes;j++)
+        {
+            if (chunks[i].majorIP.compare(nodeChunks[j].ip) ==0)
+            {
+                if (nodeChunks[j].sizeAssigned+chunks[i].size <= nodeChunks[j].sizeLimit*1.25)
+                {
+                    chunks[i].assignedTo=nodeChunks[j].ip;
+                    nodeChunks[j].sizeAssigned+=chunks[i].size;
+                    nodeChunks[j].numAssigned+=1;
+                    break;
+                }
+            }
+            
+        }
+    }
+    for(int j=0;j<numNodes;j++)
+        nodeChunks[j].localChunks= nodeChunks[j].numAssigned;
             
 }
 
@@ -495,6 +632,7 @@ void createChunks::assignRemainingChunks()
                 {
                     chunks[i].assignedTo=nodeChunks[j].ip;
                     nodeChunks[j].numAssigned++;
+                    nodeChunks[j].sizeAssigned+=chunks[i].size;
                     k=j;
                     flag=1;
                     i++;
@@ -511,6 +649,59 @@ void createChunks::assignRemainingChunks()
     }        
 }
 
+void createChunks::assignRemainingChunksNoSplit()     
+{
+    int numNodes=nodeChunks.size();
+    int numChunks=chunks.size();
+    
+    int k=-1;
+    for(int i=0;i<numChunks;) //ensures that a single node does not get all the big chunks
+    {
+        if (chunks[i].assignedTo.compare("") ==0)
+        {
+            int flag=0;
+            for(int j=k+1;j<numNodes;j++)
+            {
+                if (nodeChunks[j].sizeAssigned + chunks[i].size <= nodeChunks[j].sizeLimit*1.25)
+                {
+                    chunks[i].assignedTo=nodeChunks[j].ip;
+                    nodeChunks[j].numAssigned++;
+                    nodeChunks[j].sizeAssigned+=chunks[i].size;
+                    k=j;
+                    flag=1;
+                    i++;
+                    break;
+                }
+            }
+            if (flag==0)
+            {
+                k=-1;
+            }
+        }
+        else
+            i++;
+    }
+    sort(chunks.begin(),chunks.end(),sortChunkFunc);
+    sort(nodeChunks.begin(),nodeChunks.end(),sortNodeFunc1);
+    
+    for(int i=0;i<numChunks;i++)
+    {
+        if (chunks[i].assignedTo.compare("") ==0)
+        {       
+            for(int j=0;j<numNodes;j++)
+            {
+                if (nodeChunks[j].sizeLimit - nodeChunks[j].sizeAssigned >0)
+                {
+                    chunks[i].assignedTo=nodeChunks[j].ip;
+                    nodeChunks[j].numAssigned++;
+                    nodeChunks[j].sizeAssigned+=chunks[i].size;                
+                }
+            }
+        }
+    }
+}
+
+
 void createChunks::printStats()
 {
     int numNodes=nodeChunks.size();
@@ -520,8 +711,12 @@ void createChunks::printStats()
 			if (debug==1)
 			{
 				cout<<"For Node : "<<nodeChunks[i].ip<<endl;
-				cout<<"Upper Limit for chunks assigned : "<<nodeChunks[i].upperLimit<<endl;
+                if (fsplit)
+                    cout<<"Upper Limit for chunks assigned : "<<nodeChunks[i].upperLimit<<endl;
+                else
+                    cout<<"Upper Limit for size of chunks assigned : "<<nodeChunks[i].sizeLimit<<endl;
 				cout<<"Number of chunks assigned : "<<nodeChunks[i].numAssigned<<endl;
+                cout<<"Total size of chunks assigned : "<<nodeChunks[i].sizeAssigned<<endl;
 				cout<<"Number of local chunks assigned : "<<nodeChunks[i].localChunks<<endl;
 				cout<<"Speed Rating : "<<nodeChunks[i].rating<<endl;
 				cout<<"Overall Rating : "<<nodeChunks[i].loadFactor<<endl;
@@ -568,7 +763,24 @@ void createChunks::findRating()
         }
         totalLF+=nodeChunks[i].loadFactor;
     }
+    
     int numChunks=chunks.size();
+    
+    if (not fsplit)
+    {
+        int totalsize=0;
+        for(int i=0;i<numChunks;i++)
+        {
+            totalsize+=chunks[i].size;
+        }
+        for(int i=0;i<numNodes;i++)
+        {
+            nodeChunks[i].sizeLimit=(nodeChunks[i].loadFactor/totalLF) * totalsize;
+        }
+        return;
+    }
+    
+    
     float cutoff=0.9;
     int sum=0;
     while(sum<numChunks) // rounding off the no of chunks ensuring that minimum no of nodes are overloaded
@@ -636,7 +848,7 @@ void createChunks::saveChunks(string outFilePath)
 
 void createChunks::generateChunkMap(string nodeInfoFile,string ipListFile, string outputFile )
 {
-	getChunks();
+	getChunks(separator);
 	cout<<"generated list of chunks\n";
 	readNodeSpecs(nodeInfoFile);
 	cout<<"read node specifications\n";

@@ -87,14 +87,7 @@ MapReduce::MapReduce(int argc, char** argv)
     logobj.debug=debug;    
     
     parseArguments(argc,argv);
-    /*logobj.debug=debug;
-    
-	if (rank==0)
-	{		
-		getChunks();	
-	}
-	MPI_Barrier(comm);
-	sendRankMapping();*/
+
 }
 
 MapReduce::MapReduce(MPI_Comm communicator,int argc, char** argv)
@@ -125,6 +118,8 @@ void MapReduce::parseArguments(int argc, char **argv)
 	int i;
     dirFile="";
     dataType=binary;
+    separator="\n";
+    fsplit="yes";
 	for(i=1;i<argc;i++)
 	{
 		string str(argv[i]);
@@ -146,6 +141,20 @@ void MapReduce::parseArguments(int argc, char **argv)
             }
 				
 		}
+		else if (key.compare("sep")==0)
+        {
+            if (value.compare("space")==0)
+                separator=' ';
+            else
+                separator=value;
+        }
+        else if (key.compare("split")==0)
+        {
+            if (value.compare("yes")==0 || value.compare("no")==0)
+                fsplit=value;
+            else
+                logobj.error("Invalid answer provided for split. Valid arguments are \nsplit=yes\nsplit=no\nExiting\n");
+        }
 		else if (key.compare("filelist")==0)
 		{
 			fileList= split(value,',');
@@ -167,7 +176,7 @@ void MapReduce::parseArguments(int argc, char **argv)
 
 void MapReduce::getChunks()
 {
-	createChunks chunkObj = createChunks(chunkSize,dirFile,dataType, mntDir, fileList,dirList, debug);
+	createChunks chunkObj = createChunks(chunkSize,dirFile,dataType,separator,fsplit, mntDir, fileList,dirList, debug);
 	chunkObj.generateChunkMap(nodeInfoFile,ipListFile,chunkMapFile);
 	chunkObj.printStats(); 
 
@@ -395,11 +404,24 @@ void MapReduce::fetchdata(int index1, int index2, int filenum)
     fin.seekg(fi.startByte-1, fin.beg);
     int length = fi.endByte-fi.startByte+1;
     
-    char *buffer= new char[length];
-    fin.read(buffer,length);
+    int cutoff=32*1024*1024;
+    //int cutoff=32;
+    fout.open(outfile.c_str(),ios::out | ios::binary);
     
-    fout.open(outfile.c_str(),ios::out|ios::binary);
-    fout<<buffer;
+    if (length<=cutoff)
+        cutoff=length;
+    
+    while(length>0)    
+    {
+        char *buffer= new char[cutoff];
+        fin.read(buffer,cutoff);
+        //logobj.localLog("Chunk "+itos(chunks[index1].number)+" : No. of bytes read = "+itos(fin.gcount()));
+        fout.write(buffer,cutoff);
+        
+        length-=cutoff;
+        if (length<=cutoff)
+            cutoff=length;        
+    }
     
     fin.close();
     fout.close();
@@ -429,7 +451,7 @@ void MapReduce::fetchNonLocal()
      logobj.localLog("Chunks obtained "+itos(chunksObtained.size()));
 }
 
-int MapReduce::map(int argc,char **argv, void(*mapfunc)(primaryKV&, int&))
+int MapReduce::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&, int&))
 {
     parseArguments(argc,argv);
     if (rank==0)
@@ -451,11 +473,56 @@ int MapReduce::map(int argc,char **argv, void(*mapfunc)(primaryKV&, int&))
             chunksObtained.pop();
             chunksCompleted++;
             /*Insert Map Code Here*/
-            for(int i=0;i<chunk.size();i++)
+            int kv;
+            mapfunc(chunk,kv);
+            /*Insert map Code here*/
+        }
+        else
+        {
+            usleep(1000); //sleep for a millisecond;
+        }
+    }  
+    t1.join();
+    return 1;
+}
+
+/*For the case when file splitting is not allowed. The user defined map function 
+ * is given the paths of the files belonging to its chunk. If a file is nonlocal
+ * it is first copied locally and the local path is provided*/
+int MapReduce::map(int argc,char **argv, void(*mapfunc)(vector<string>, int&))
+{
+    parseArguments(argc,argv);
+    if (rank==0)
+    {   
+        getChunks();    
+    }
+    MPI_Barrier(comm);  
+    sendRankMapping();
+    t1=thread(threadFunc1,this);
+    
+    int totalChunks=chunks.size();
+    logobj.localLog("Total Chunks "+itos(totalChunks));
+    while(chunksCompleted!=totalChunks)
+    {
+        if (!chunksObtained.empty())
+        {
+            int front =chunksObtained.front();
+            chunksObtained.pop();
+            chunksCompleted++;
+
+            vector<FileInfo> fileList = chunks[front].chunk;
+            int numFiles=fileList.size();
+            vector<string> pathList;
+            /*Insert Map Code Here*/
+            for(int i=0;i<numFiles;i++)
             {
-                int kv;
-                mapfunc(chunk[i],kv);
+                if (fileList[i].localpath.compare("")==0)
+                    pathList.push_back(fileList[i].path);
+                else
+                    pathList.push_back(fileList[i].localpath);
             }
+            int kv;
+            mapfunc(pathList,kv);
             /*Insert map Code here*/
         }
         else

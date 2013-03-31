@@ -1,7 +1,8 @@
 #include<iostream>
 #include "mapReduce.h"
 
-void func(primaryKV&, int &n);
+void func(vector<primaryKV> &kv, int &n);
+
 int main(int argc, char **argv)
 {
 
@@ -11,7 +12,7 @@ return 0;
 
 }
 
-void func(primaryKV &kv, int &n)
+void func(vector<primaryKV> &kv, int &n)
 {
     
 }

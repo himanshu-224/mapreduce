@@ -19,6 +19,8 @@ private:
     string logFolder;
     Logging logobj;
 	
+    string separator;
+    string fsplit;
 	string dirFile;
 	string mntDir;
     string myip;
@@ -41,7 +43,8 @@ private:
 	public:
 //data provided as blocks of string to user suppiled map function
 
-int map(int argc,char **argv, void(*mapfunc)(primaryKV&, int&));
+int map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&, int&));
+int map(int argc,char **argv, void(*mapfunc)(vector<string>, int&));
 int map(void(*mapfunc)(int nprocs, int rank, int&));
 int map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primaryKV&, int&));
 
