@@ -400,14 +400,13 @@ void MapReduce::fetchdata(int index1, int index2, int filenum)
     string outfile="/tmp/rank_"+itos(rank)+"chunk_"+itos(chunks[index1].number)+"file_"+itos(filenum);
     fi.localpath=outfile;
     
-    fin.open(fi.path.c_str(), ios::in | ios::binary);
+    fin.open(fi.path.c_str(), ios::in);
     fin.seekg(fi.startByte-1, fin.beg);
     int length = fi.endByte-fi.startByte+1;
     
     int cutoff=32*1024*1024;
     //int cutoff=32;
     fout.open(outfile.c_str(),ios::out | ios::binary);
-    
     if (length<=cutoff)
         cutoff=length;
     
@@ -415,7 +414,7 @@ void MapReduce::fetchdata(int index1, int index2, int filenum)
     {
         char *buffer= new char[cutoff];
         fin.read(buffer,cutoff);
-        //logobj.localLog("Chunk "+itos(chunks[index1].number)+" : No. of bytes read = "+itos(fin.gcount()));
+        logobj.localLog("Chunk "+itos(chunks[index1].number)+" : No. of bytes read = "+itos(fin.gcount()));
         fout.write(buffer,cutoff);
         
         length-=cutoff;

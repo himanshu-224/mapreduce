@@ -137,7 +137,7 @@ void createChunks::noSplit()
         FileInfo fi;
         fi.path=fileSizes[i].path;
         fi.IP= extractIP(fi.path);
-        fi.startByte=0;
+        fi.startByte=1;
         fi.endByte=fileSizes[i].size;        
         
         cursize=cursize+fileSizes[i].size;
