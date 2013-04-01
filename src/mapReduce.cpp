@@ -42,10 +42,11 @@ void MapReduce::readDefaults(string configFile)
 	pugi::xml_node conf = doc.child("Configuration");
 	
 	pugi::xml_node paths = conf.child("Paths");
-	ipListFile = paths.child_value("IPListFile");
-	nodeInfoFile = paths.child_value("NodeInfoFile");
-	chunkMapFile= paths.child_value("ChunkMapFile");
-	mntDir= paths.child_value("MountDirectory");
+	string homedir= paths.child_value("HomeDirectory");
+	ipListFile = homedir+paths.child_value("IPListFile");
+	nodeInfoFile = homedir+paths.child_value("NodeInfoFile");
+	chunkMapFile= homedir+paths.child_value("ChunkMapFile");
+	mntDir= homedir+paths.child_value("MountDirectory");
 	
 	pugi::xml_node params = conf.child("Parameters");
 	chunkSize = atoi(params.child_value("ChunkSize"));	
@@ -459,7 +460,7 @@ int MapReduce::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&, int&
     }
     MPI_Barrier(comm);  
     sendRankMapping();
-    t1=thread(threadFunc1,this);
+    thread t1=thread(threadFunc1,this);
     
     int totalChunks=chunks.size();
     logobj.localLog("Total Chunks "+itos(totalChunks));
@@ -497,7 +498,7 @@ int MapReduce::map(int argc,char **argv, void(*mapfunc)(vector<string>, int&))
     }
     MPI_Barrier(comm);  
     sendRankMapping();
-    t1=thread(threadFunc1,this);
+	thread t1=thread(threadFunc1,this);
     
     int totalChunks=chunks.size();
     logobj.localLog("Total Chunks "+itos(totalChunks));
@@ -552,7 +553,7 @@ int MapReduce::map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primaryKV&,
     int kv;
     if (rank==0)
     {
-        t1=thread(genfunc,buffer,completed);
+        thread t1=thread(genfunc,buffer,completed);
     
         int curRank=1;/*rank 0 should not be assigned any maps*/
         while(flag)
@@ -588,7 +589,7 @@ int MapReduce::map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primaryKV&,
     }
     else
     {
-        t1 = thread(RecvData,buffer, completed, 0, comm, logobj);
+       thread t1 = thread(RecvData,buffer, completed, 0, comm, logobj);
         int i=1;
         while(flag)
         {
@@ -618,7 +619,7 @@ int MapReduce::map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primaryKV&,
                 i++;
             }
       }
-        t1.join();
+       t1.join();
     }
     
     return 1;

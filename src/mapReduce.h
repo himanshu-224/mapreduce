@@ -32,7 +32,7 @@ private:
 	vector<ChunkInfo> chunks;
     
     queue<int> chunksObtained;
-    std::thread t1;
+    //std::thread t1;
 	
 	int nprocs, rank;
 	MPI_Comm comm;

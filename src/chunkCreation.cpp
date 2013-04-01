@@ -378,7 +378,7 @@ void createChunks::binaryFile()
     cout<<"No. of Chunks = "<<chunks.size()<<endl;
 }
 
-/*string createChunks::extractIP(string str)
+string createChunks::extractIP(string str)
 {
 	int pos= str.find(":");
 	for(int i=pos-1;i>=0;i--)
@@ -389,9 +389,9 @@ void createChunks::binaryFile()
 		}
 	}
     return "";
-}*/
+}
 
-string createChunks::extractIP(string str)
+/*string createChunks::extractIP(string str)
 {
 	int pos= str.find("#");
 	for(int i=pos-1;i>=0;i--)
@@ -402,7 +402,7 @@ string createChunks::extractIP(string str)
 		}
 	}
     return "";
-}
+}*/
 
 string createChunks::itos(int num)
 {
@@ -655,8 +655,10 @@ void createChunks::assignRemainingChunksNoSplit()
     int numChunks=chunks.size();
     
     int k=-1;
+	int numcycles=0;
     for(int i=0;i<numChunks;) //ensures that a single node does not get all the big chunks
     {
+		
         if (chunks[i].assignedTo.compare("") ==0)
         {
             int flag=0;
@@ -669,6 +671,7 @@ void createChunks::assignRemainingChunksNoSplit()
                     nodeChunks[j].sizeAssigned+=chunks[i].size;
                     k=j;
                     flag=1;
+					numcycles=0;
                     i++;
                     break;
                 }
@@ -676,14 +679,19 @@ void createChunks::assignRemainingChunksNoSplit()
             if (flag==0)
             {
                 k=-1;
+				numcycles++;
+				if (numcycles>1)
+					i++;
             }
         }
         else
+		{
+			numcycles=0;
             i++;
+		}
     }
     sort(chunks.begin(),chunks.end(),sortChunkFunc);
     sort(nodeChunks.begin(),nodeChunks.end(),sortNodeFunc1);
-    
     for(int i=0;i<numChunks;i++)
     {
         if (chunks[i].assignedTo.compare("") ==0)
@@ -694,7 +702,8 @@ void createChunks::assignRemainingChunksNoSplit()
                 {
                     chunks[i].assignedTo=nodeChunks[j].ip;
                     nodeChunks[j].numAssigned++;
-                    nodeChunks[j].sizeAssigned+=chunks[i].size;                
+                    nodeChunks[j].sizeAssigned+=chunks[i].size;    
+					break;            
                 }
             }
         }

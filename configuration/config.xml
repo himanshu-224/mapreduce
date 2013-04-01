@@ -1,9 +1,10 @@
 <Configuration>
 <Paths>
-<IPListFile>/export/mapReduce/ipList.txt</IPListFile>
-<NodeInfoFile>/export/mapReduce/nodesInfo.xml</NodeInfoFile>
-<ChunkMapFile>/export/mapReduce/chunkMap.xml</ChunkMapFile>
-<MountDirectory>/mnt/mpidata/</MountDirectory>
+<HomeDirectory>/root/</HomeDirectory>
+<IPListFile>export/mapReduce/ipList.txt</IPListFile>
+<NodeInfoFile>export/mapReduce/nodesInfo.xml</NodeInfoFile>
+<ChunkMapFile>mpidata/10.1.1.1:export/mapReduce/chunkMap.xml</ChunkMapFile>
+<MountDirectory>mpidata/</MountDirectory>
 </Paths>
 <Parameters>
 <ChunkSize>1024</ChunkSize>
