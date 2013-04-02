@@ -5,6 +5,7 @@
 <NodeInfoFile>export/mapReduce/nodesInfo.xml</NodeInfoFile>
 <ChunkMapFile>export/mapReduce/chunkMap.xml</ChunkMapFile>
 <MountDirectory>mpidata/</MountDirectory>
+<LogDirectory>logs/</LogDirectory>
 </Paths>
 <Parameters>
 <ChunkSize>1024</ChunkSize>

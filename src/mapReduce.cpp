@@ -83,7 +83,7 @@ void MapReduce::readDefaults(string configFile)
 	pugi::xml_document doc;
 	if (!doc.load_file(configFile.c_str()))
 	{
-		logobj.localLog("Could not locate configuration file..Exiting");
+		cout<<"Could not locate configuration file..Exiting";
 		exit(-1); 
 	}
 	pugi::xml_node conf = doc.child("Configuration");
@@ -94,6 +94,7 @@ void MapReduce::readDefaults(string configFile)
 	nodeInfoFile = homedir+paths.child_value("NodeInfoFile");
 	chunkMapFile= homedir+paths.child_value("ChunkMapFile");
 	mntDir= homedir+paths.child_value("MountDirectory");
+    logDir=homedir+paths.child_value("LogDirectory");
 	
 	pugi::xml_node params = conf.child("Parameters");
 	chunkSize = atoi(params.child_value("ChunkSize"));	
@@ -102,7 +103,7 @@ void MapReduce::readDefaults(string configFile)
 
 void MapReduce::sendDefaults()
 {
-    int n=5;
+    int n=6;
     int arr[n];
     string globalchunkMapFile;
     
@@ -113,7 +114,7 @@ void MapReduce::sendDefaults()
     fin>>singleip;
     fin.close();    
     
-    globalchunkMapFile=homedir+singleip+"/"+chunkMapFile.substr(homedir.length());;
+    globalchunkMapFile=homedir+singleip+"/"+chunkMapFile.substr(homedir.length());
     }
     else
         globalchunkMapFile=chunkMapFile;
@@ -123,8 +124,9 @@ void MapReduce::sendDefaults()
     arr[2]=mntDir.length();
     arr[3]=itos(chunkSize).length();
     arr[4]=itos(isCluster).length();
+    arr[5]=logDir.length();
     
-    string str = homedir+globalchunkMapFile+mntDir+itos(chunkSize)+itos(isCluster);
+    string str = homedir+globalchunkMapFile+mntDir+itos(chunkSize)+itos(isCluster)+logDir;
     char *buffer = strdup(str.c_str());
     
     for(int i=1;i<nprocs;i++){
@@ -136,7 +138,7 @@ void MapReduce::sendDefaults()
 void MapReduce::receiveDefaults()
 {
     MPI_Status status;
-    int n=5,length=0,curpos=0;
+    int n=6,length=0,curpos=0;
     int arr[n];
     MPI_Recv(arr,n,MPI_INT,0,0,comm,&status);
     
@@ -157,6 +159,8 @@ void MapReduce::receiveDefaults()
     chunkSize=atoi(str.substr(curpos,arr[3]).c_str());
     curpos+=arr[3];
     isCluster=atoi(str.substr(curpos,arr[4]).c_str());
+    curpos+=arr[4];
+    logDir=str.substr(curpos,arr[5]);
 }
 
 void threadFunc1(MapReduce *obj)
@@ -170,8 +174,6 @@ MapReduce::MapReduce(int argc, char** argv)
 	mpi_initialized_mr=1;
     chunksCompleted=0;
     
-    logobj=Logging();
-    
 	int flag;
 	MPI_Initialized(&flag);	
 	
@@ -183,14 +185,14 @@ MapReduce::MapReduce(int argc, char** argv)
 	}
 	else
 	{
-		logobj.error("MPI Environment is already initialized..Exiting\n");
+		cout<<"MPI Environment is already initialized..Exiting\n";
+        exit(-1);
 	}
 	
 	comm = MPI_COMM_WORLD;
 	MPI_Comm_rank(comm,&rank);
 	MPI_Comm_size(comm,&nprocs);	
 
-    logobj.rank=rank;
     if (rank==0)
     {
         readDefaults("configuration/config.xml");
@@ -200,7 +202,8 @@ MapReduce::MapReduce(int argc, char** argv)
     {
         receiveDefaults();
     }
-    logobj.debug=debug;    
+    mkdir(logDir.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH); //created directory for logs
+    logobj=Logging(logDir,rank,debug);
     
     parseArguments(argc,argv);
     
@@ -237,22 +240,19 @@ MapReduce::MapReduce(int argc, char** argv)
     }
 }
 
-MapReduce::MapReduce(MPI_Comm communicator,int argc, char** argv)
+/*MapReduce::MapReduce(MPI_Comm communicator,int argc, char** argv)
 {
 	debug=1;
 	mpi_initialized_mr=0;
     chunksCompleted=0;
-    
-    logobj=Logging();
 	
 	comm = communicator;
 	MPI_Comm_rank(comm,&rank);
 	MPI_Comm_size(comm,&nprocs);
 
-    logobj.rank=rank;
     readDefaults("configuration/config.xml");
 
-}
+}*/
 
 MapReduce::~MapReduce()
 {

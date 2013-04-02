@@ -24,6 +24,7 @@ private:
 	string dirFile;
     string homedir;
 	string mntDir;
+    string logDir;
     string myip;
     string rootip;
 	DataType dataType;

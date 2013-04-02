@@ -18,6 +18,7 @@ public:
     int rank;
     int debug;
     Logging();
+    Logging(string baseDir, int rnk, int dbg);
     ~Logging();
     void localLog(string logmsg);
     void localLog(int logmsg);
