@@ -25,6 +25,7 @@ private:
     string homedir;
 	string mntDir;
     string myip;
+    string rootip;
 	DataType dataType;
 	int chunkSize;
     int isCluster;
@@ -54,6 +55,8 @@ MapReduce(int, char**);
 MapReduce(MPI_Comm communicator,int, char**);
 ~MapReduce();
 void readDefaults(string configFile);
+void sendDefaults();
+void receiveDefaults();
 void parseArguments(int argc, char **argv);
 void getChunks();
 void sendRankMapping();
