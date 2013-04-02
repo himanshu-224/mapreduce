@@ -22,10 +22,12 @@ private:
     string separator;
     string fsplit;
 	string dirFile;
+    string homedir;
 	string mntDir;
     string myip;
 	DataType dataType;
 	int chunkSize;
+    int isCluster;
 	int numMaps;
 	vector<string> fileList;
 	vector<string> dirList;
@@ -59,6 +61,7 @@ void getProcChunks(int tprocs, int mypos, string myip);
 void printChunks(vector<ChunkInfo> chunk);
 
 void islocal();
+void mountDir();
 void fetchdata(int index1,int index2, int filenum);
 void fetchNonLocal();
 vector<primaryKV> createChunk(int front);

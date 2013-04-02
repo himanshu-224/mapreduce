@@ -1,7 +1,7 @@
 
 
-MPICC=/opt/mpich2/gnu/bin/mpic++
-MPIRUN=/opt/mpich2/gnu/bin/mpirun
+MPICC=mpic++
+MPIRUN=mpirun
 
 userprog: src/userprog.cpp src/objs/mapReduce.o src/objs/chunkCreation.o src/objs/pugixml.o src/dataStruc.h src/objs/logging.o
 	$(MPICC) -std=c++0x -pthread -c src/userprog.cpp -o src/objs/userprog.o

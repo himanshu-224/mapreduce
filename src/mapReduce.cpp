@@ -6,6 +6,9 @@
 #include<sstream>
 #include<vector>
 #include<unistd.h>
+#include<sys/stat.h>
+#include<sys/mount.h>
+#include<error.h>
 
 #include "mapReduce.h"
 #include "chunkCreation.h"
@@ -14,8 +17,11 @@
 using namespace std;
 
 string itos(int num);
+string extractIP(string str);
 
 void RecvData(queue<char> &buffer, int &completed, int recvRank, MPI_Comm comm, Logging &logobj);
+
+vector<string> filesystemsList(string dirFile,vector<string> dirList,vector<string> fileList);
 
 vector<string> &split(const string &s, char delim, vector<string> &elems) {
     stringstream ss(s);
@@ -31,6 +37,46 @@ vector<string> split(string s, char delim) {
     return split(s.c_str(), delim, elems);
 }
 
+void uniqueInsert(vector<string>& iplist, string ip)
+{
+    int flag=0;
+    for(int i=0;i<iplist.size();i++)
+    {
+        if (iplist[i].compare(ip)==0){
+            flag=1;
+            break;
+        }
+    }
+    if (flag==0)
+        iplist.push_back(ip);
+}
+
+vector<string> filesystemsList(string dirFile,vector<string> dirList,vector<string> fileList)
+{
+    int i;
+    vector<string> iplist;
+    for (i=0;i<fileList.size();i++)
+    {
+        uniqueInsert(iplist,extractIP(dirList[i]));
+    }
+    for(i=0;i<dirList.size();i++)
+    {
+        uniqueInsert(iplist,extractIP(dirList[i]));
+    }
+    if (dirFile.compare("")==0)     
+        return iplist;
+    
+    ifstream fin (dirFile.c_str());
+    char str[256];
+    while (fin>>str)
+    {      
+        string dirName(str);
+        uniqueInsert(iplist,extractIP(dirName));
+    }
+    fin.close();
+    return iplist;
+}    
+
 void MapReduce::readDefaults(string configFile)
 {
 	pugi::xml_document doc;
@@ -42,7 +88,7 @@ void MapReduce::readDefaults(string configFile)
 	pugi::xml_node conf = doc.child("Configuration");
 	
 	pugi::xml_node paths = conf.child("Paths");
-	string homedir= paths.child_value("HomeDirectory");
+	homedir= paths.child_value("HomeDirectory");
 	ipListFile = homedir+paths.child_value("IPListFile");
 	nodeInfoFile = homedir+paths.child_value("NodeInfoFile");
 	chunkMapFile= homedir+paths.child_value("ChunkMapFile");
@@ -50,6 +96,7 @@ void MapReduce::readDefaults(string configFile)
 	
 	pugi::xml_node params = conf.child("Parameters");
 	chunkSize = atoi(params.child_value("ChunkSize"));	
+    isCluster= atoi(params.child_value("Cluster"));   
 }
 
 void threadFunc1(MapReduce *obj)
@@ -88,7 +135,33 @@ MapReduce::MapReduce(int argc, char** argv)
     logobj.debug=debug;    
     
     parseArguments(argc,argv);
-
+    
+    if (rank==0)
+    {
+        mkdir(mntDir.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+        logobj.localLog("Created directory : "+mntDir);
+        vector<string> iplist = filesystemsList(dirFile,dirList,fileList);
+        
+        for (vector<string>::iterator it=iplist.begin(); it!=iplist.end();++it)
+        {
+            logobj.localLog("Created directory : "+(mntDir+*it));
+            mkdir((mntDir+*it).c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+            if (isCluster)
+            {
+             string src = *it+":"+homedir+"export";
+             string dest= mntDir+*it;
+             
+             logobj.localLog("Mounting directory "+ src + " at "+dest);
+             int rvalue = mount(src.c_str(),dest.c_str(),"auto", MS_RDONLY ,"");
+             if (rvalue==-1 && errno==EBUSY)
+                 logobj.localLog("Directory already mounted");
+             else if (rvalue==-1)
+                 logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+itos(errno)+"]"+"\n...Exiting");
+                
+            }
+        }
+    }
+    
 }
 
 MapReduce::MapReduce(MPI_Comm communicator,int argc, char** argv)
@@ -298,6 +371,17 @@ void MapReduce::getProcChunks(int tprocs, int mypos, string myip)
     logobj.localLog("Obtained list of chunks assigned to this process");           
 	//printChunks(chunks);
     islocal();
+    if(isCluster) //Mounting its own export directory
+    {
+        string src = myip+":"+homedir+"export";
+        string dest= mntDir+myip;         
+        logobj.localLog("Mounting directory "+ src + " at "+dest);
+        int rvalue = mount(src.c_str(),dest.c_str(),"auto", MS_RDONLY ,"");
+        if (rvalue==-1 && errno==EBUSY)
+             logobj.localLog("Directory already mounted");
+        else if (rvalue==-1)
+             logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+itos(errno)+"]"+"\n...Exiting");    
+    }
 }
 
 void MapReduce::printChunks(vector<ChunkInfo> chunks)
@@ -429,6 +513,11 @@ void MapReduce::fetchdata(int index1, int index2, int filenum)
 
 void MapReduce::fetchNonLocal()
 { 
+    if (rank!=0) //rank 0 has already mounted all the required directories
+    {
+        mountDir();
+    }
+    
     logobj.localLog("Fetching non-local chunks...");
      for(int i=0;i<chunks.size();i++)
      {
@@ -450,7 +539,54 @@ void MapReduce::fetchNonLocal()
      }
      logobj.localLog("Chunks obtained "+itos(chunksObtained.size()));
 }
-
+void MapReduce::mountDir()
+{
+    logobj.localLog("Mounting directories ..");
+    vector<string> iplist;
+    for(int i=0;i<chunks.size();i++)
+     {
+         if (chunks[i].local==0)
+         {
+            int lim=chunks[i].chunk.size();
+            int filenum=0;
+            for(int j=0;j<lim;j++)
+            {
+                if (myip.compare(chunks[i].chunk[j].IP)!=0)
+                {
+                    uniqueInsert(iplist,chunks[i].chunk[j].IP); 
+                }
+            }    
+            chunksObtained.push(i);
+         }
+         
+     } 
+     //iplist.uniqueInsert(myip); 
+     
+     mkdir(mntDir.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+     logobj.localLog("Created directory : "+mntDir);
+     
+     for (vector<string>::iterator it=iplist.begin(); it!=iplist.end();++it)
+     {
+         logobj.localLog("Created directory : "+(mntDir+*it));
+         mkdir((mntDir+*it).c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+         if (isCluster)
+         {
+             //string cmd="mount "+*it+":"+homedir+"export "+mntDir+*it;
+             //system(cmd.c_str());
+             string src = *it+":"+homedir+"export";
+             string dest= mntDir+*it;
+             
+             logobj.localLog("Mounting directory "+ src + " at "+dest);
+             int rvalue = mount(src.c_str(),dest.c_str(),"auto", MS_RDONLY ,"");
+             if (rvalue==-1 && errno==EBUSY)
+                 logobj.localLog("Directory already mounted");
+             else if (rvalue==-1)
+                 logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+itos(errno)+"]"+"\n...Exiting");
+                
+         }
+     }     
+     
+}
 int MapReduce::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&, int&))
 {
     parseArguments(argc,argv);

@@ -43,7 +43,8 @@ bool sortbyFileSize(FileSize f1, FileSize f2)
     return (f1.size< f2.size);
 }
 
-       
+string extractIP(string str);
+
 createChunks::createChunks(int csize,string str,DataType type, string sep,string split,string dir, vector<string> flist, vector<string> dlist,int dbg)
     {
         chunkSize=csize;
@@ -378,31 +379,71 @@ void createChunks::binaryFile()
     cout<<"No. of Chunks = "<<chunks.size()<<endl;
 }
 
-string createChunks::extractIP(string str)
+int maximum(int i,int j, int k)
 {
-	int pos= str.find(":");
-	for(int i=pos-1;i>=0;i--)
-	{
-		if (str[i]=='/')
-		{
-		return str.substr(i+1,pos-1-i);
-		}
-	}
-    return "";
+    if (i>j){
+        if (i>k) return i;
+        else return k;
+    }
+    else{
+        if (j>k) return j;
+        else return k;
+    }
 }
 
-/*string createChunks::extractIP(string str)
+string extractIP(string str)
 {
-	int pos= str.find("#");
-	for(int i=pos-1;i>=0;i--)
-	{
-		if (str[i]=='/')
-		{
-		return str.substr(i+1,pos-1-i);
-		}
-	}
-    return "";
-}*/
+    int pos1= str.find(".");
+    int len=str.length();
+    int flag=0,i=0,j=0,k=0;
+    
+    for(i=pos1+1;i<4+pos1+1 && j<len;i++)
+    {
+        if (str[i]=='.')
+        {
+            flag++;
+            for(j=i+1;j<4+i+1 && j<len ;j++)
+            {
+                if (str[j]=='.')
+                {
+                    flag++;
+                    for(k=j+1;k<4+j+1 && k<len;k++)
+                    {
+                        if (str[k]=='/')
+                        {
+                            flag++;
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
+            break;
+        }
+    }
+    if (pos1!=-1 && flag==3)
+    {
+        int found=0,l;
+        for(l=pos1;l>=pos1-4 && l>=0;l--)
+        {
+            if (str[l]=='/')
+            {
+                found=1;
+                break;
+            }
+        }
+        if (found==0){
+            if (l==-1 && pos1-l<=4)
+                l=-1;
+            else return extractIP(str.substr(maximum(i,j,k)));
+        }
+        return str.substr(l+1,k-l-1);
+    }
+    else if (pos1==-1) 
+        return "";
+    else return extractIP(str.substr(maximum(i,j,k)));
+        
+}
 
 string createChunks::itos(int num)
 {
