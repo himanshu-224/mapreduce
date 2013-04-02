@@ -211,9 +211,9 @@ MapReduce::MapReduce(int argc, char** argv)
         vector<string> iplist = filesystemsList(dirFile,dirList,fileList);
         
         string singleip;
-        //ifstream fin (ipListFile.c_str());
-        //fin>>singleip;
-        //fin.close(); 
+        ifstream fin (ipListFile.c_str());
+        fin>>singleip;
+        fin.close(); 
         iplist.erase(remove(iplist.begin(), iplist.end(), singleip), iplist.end());
         
         for (vector<string>::iterator it=iplist.begin(); it!=iplist.end();++it)
