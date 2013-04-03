@@ -26,13 +26,17 @@ private:
 	
 	//structure to store key values
 	struct KValue {
-		uint64_t keysize;
-		uint64_t vsize;
+		int keysize;
+		int vsize;
 		K key;
 		V value;
 	};
 	
 	deque<KValue> kv;
+	int nkv;
+	// Type codes char - 0, int - 1, float - 2, double - 3, string - 4
+	int keytype;
+	int valuetype;
 
 
 	// file info
@@ -40,10 +44,14 @@ private:
 	char *filename;                   // filename to store KV if needed
 	FILE *fp;                         // file ptr
 	int fileflag;                     // 1 if file exists, 0 if not
+	
+	void setType();
 
 public:
 	KeyValue(class MapReduce *, MPI_Comm, Logging *);
 	~KeyValue();
+	
+	void add(K, V);
 };
 
 #endif
