@@ -38,7 +38,6 @@ class createChunks
     int getFileSize(string filename);  
     int getPatternPosition(string line,string sep);
     string itos(int num);
-    string extractIP(string str);
 	
 	vector<ChunkInfo> getChunks(string);
     void noSplit();

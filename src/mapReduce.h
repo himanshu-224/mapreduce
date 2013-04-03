@@ -22,17 +22,21 @@ private:
     string separator;
     string fsplit;
 	string dirFile;
+    string homedir;
 	string mntDir;
+    string logDir;
     string myip;
+    string rootip;
 	DataType dataType;
 	int chunkSize;
+    int isCluster;
 	int numMaps;
 	vector<string> fileList;
 	vector<string> dirList;
 	vector<ChunkInfo> chunks;
     
     queue<int> chunksObtained;
-    std::thread t1;
+    //std::thread t1;
 	
 	int nprocs, rank;
 	MPI_Comm comm;
@@ -52,6 +56,8 @@ MapReduce(int, char**);
 MapReduce(MPI_Comm communicator,int, char**);
 ~MapReduce();
 void readDefaults(string configFile);
+void sendDefaults();
+void receiveDefaults();
 void parseArguments(int argc, char **argv);
 void getChunks();
 void sendRankMapping();
@@ -59,6 +65,7 @@ void getProcChunks(int tprocs, int mypos, string myip);
 void printChunks(vector<ChunkInfo> chunk);
 
 void islocal();
+void mountDir();
 void fetchdata(int index1,int index2, int filenum);
 void fetchNonLocal();
 vector<primaryKV> createChunk(int front);

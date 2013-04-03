@@ -5,7 +5,11 @@
 #include<string.h>
 #include<sstream>
 #include<vector>
+#include<algorithm>
 #include<unistd.h>
+#include<sys/stat.h>
+#include<sys/mount.h>
+#include<error.h>
 
 #include "mapReduce.h"
 #include "chunkCreation.h"
@@ -14,8 +18,11 @@
 using namespace std;
 
 string itos(int num);
+string extractIP(string str);
 
 void RecvData(queue<char> &buffer, int &completed, int recvRank, MPI_Comm comm, Logging &logobj);
+
+vector<string> filesystemsList(string dirFile,vector<string> dirList,vector<string> fileList);
 
 vector<string> &split(const string &s, char delim, vector<string> &elems) {
     stringstream ss(s);
@@ -31,24 +38,129 @@ vector<string> split(string s, char delim) {
     return split(s.c_str(), delim, elems);
 }
 
+void uniqueInsert(vector<string>& iplist, string ip)
+{
+    int flag=0;
+    for(int i=0;i<iplist.size();i++)
+    {
+        if (iplist[i].compare(ip)==0){
+            flag=1;
+            break;
+        }
+    }
+    if (flag==0)
+        iplist.push_back(ip);
+}
+
+vector<string> filesystemsList(string dirFile,vector<string> dirList,vector<string> fileList)
+{
+    int i;
+    vector<string> iplist;
+    for (i=0;i<fileList.size();i++)
+    {
+        uniqueInsert(iplist,extractIP(dirList[i]));
+    }
+    for(i=0;i<dirList.size();i++)
+    {
+        uniqueInsert(iplist,extractIP(dirList[i]));
+    }
+    if (dirFile.compare("")==0)     
+        return iplist;
+    
+    ifstream fin (dirFile.c_str());
+    char str[256];
+    while (fin>>str)
+    {      
+        string dirName(str);
+        uniqueInsert(iplist,extractIP(dirName));
+    }
+    fin.close();
+    return iplist;
+}    
+
 void MapReduce::readDefaults(string configFile)
 {
 	pugi::xml_document doc;
 	if (!doc.load_file(configFile.c_str()))
 	{
-		logobj.localLog("Could not locate configuration file..Exiting");
+		cout<<"Could not locate configuration file..Exiting";
 		exit(-1); 
 	}
 	pugi::xml_node conf = doc.child("Configuration");
 	
 	pugi::xml_node paths = conf.child("Paths");
-	ipListFile = paths.child_value("IPListFile");
-	nodeInfoFile = paths.child_value("NodeInfoFile");
-	chunkMapFile= paths.child_value("ChunkMapFile");
-	mntDir= paths.child_value("MountDirectory");
+	homedir= paths.child_value("HomeDirectory");
+	ipListFile = homedir+paths.child_value("IPListFile");
+	nodeInfoFile = homedir+paths.child_value("NodeInfoFile");
+	chunkMapFile= homedir+paths.child_value("ChunkMapFile");
+	mntDir= homedir+paths.child_value("MountDirectory");
+    logDir=homedir+paths.child_value("LogDirectory");
 	
 	pugi::xml_node params = conf.child("Parameters");
 	chunkSize = atoi(params.child_value("ChunkSize"));	
+    isCluster= atoi(params.child_value("Cluster"));
+}
+
+void MapReduce::sendDefaults()
+{
+    int n=6;
+    int arr[n];
+    string globalchunkMapFile;
+    
+    if (isCluster)
+    {
+    string singleip;
+    ifstream fin (ipListFile.c_str());
+    fin>>singleip;
+    fin.close();    
+    
+    globalchunkMapFile=homedir+singleip+"/"+chunkMapFile.substr(homedir.length());
+    }
+    else
+        globalchunkMapFile=chunkMapFile;
+    
+    arr[0]=homedir.length();
+    arr[1]=globalchunkMapFile.length(); 
+    arr[2]=mntDir.length();
+    arr[3]=itos(chunkSize).length();
+    arr[4]=itos(isCluster).length();
+    arr[5]=logDir.length();
+    
+    string str = homedir+globalchunkMapFile+mntDir+itos(chunkSize)+itos(isCluster)+logDir;
+    char *buffer = strdup(str.c_str());
+    
+    for(int i=1;i<nprocs;i++){
+        MPI_Send(arr,n,MPI_INT,i,0,comm);    
+        MPI_Send(buffer,str.length(),MPI_CHAR,i,0,comm);
+    }
+}
+
+void MapReduce::receiveDefaults()
+{
+    MPI_Status status;
+    int n=6,length=0,curpos=0;
+    int arr[n];
+    MPI_Recv(arr,n,MPI_INT,0,0,comm,&status);
+    
+    for(int i=0;i<n;i++)
+        length+=arr[i];
+    
+    char* buffer= new char[length];
+    
+    MPI_Recv(buffer,length,MPI_CHAR,0,0,comm,&status);
+    string str(buffer);
+    
+    homedir=str.substr(curpos,arr[0]);
+    curpos+=arr[0];
+    chunkMapFile=str.substr(curpos,arr[1]);
+    curpos+=arr[1];
+    mntDir=str.substr(curpos,arr[2]);
+    curpos+=arr[2];
+    chunkSize=atoi(str.substr(curpos,arr[3]).c_str());
+    curpos+=arr[3];
+    isCluster=atoi(str.substr(curpos,arr[4]).c_str());
+    curpos+=arr[4];
+    logDir=str.substr(curpos,arr[5]);
 }
 
 void threadFunc1(MapReduce *obj)
@@ -62,8 +174,6 @@ MapReduce::MapReduce(int argc, char** argv)
 	mpi_initialized_mr=1;
     chunksCompleted=0;
     
-    logobj=Logging();
-    
 	int flag;
 	MPI_Initialized(&flag);	
 	
@@ -75,37 +185,74 @@ MapReduce::MapReduce(int argc, char** argv)
 	}
 	else
 	{
-		logobj.error("MPI Environment is already initialized..Exiting\n");
+		cout<<"MPI Environment is already initialized..Exiting\n";
+        exit(-1);
 	}
 	
 	comm = MPI_COMM_WORLD;
 	MPI_Comm_rank(comm,&rank);
 	MPI_Comm_size(comm,&nprocs);	
 
-    logobj.rank=rank;
-    readDefaults("configuration/config.xml");
-    logobj.debug=debug;    
+    if (rank==0)
+    {
+        readDefaults("configuration/config.xml");
+        sendDefaults();
+    }
+    else
+    {
+        receiveDefaults();
+    }
+    mkdir(logDir.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH); //created directory for logs
+    logobj=Logging(logDir,rank,debug);
     
     parseArguments(argc,argv);
-
+    
+    if (rank==0)  /*Mount all directories except its own in READONLY mode*/
+    {
+        mkdir(mntDir.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+        logobj.localLog("Created directory : "+mntDir);
+        vector<string> iplist = filesystemsList(dirFile,dirList,fileList);
+        
+        string singleip;
+        ifstream fin (ipListFile.c_str());
+        fin>>singleip;
+        fin.close(); 
+        iplist.erase(remove(iplist.begin(), iplist.end(), singleip), iplist.end());
+        
+        for (vector<string>::iterator it=iplist.begin(); it!=iplist.end();++it)
+        {
+            logobj.localLog("Created directory : "+(mntDir+*it));
+            mkdir((mntDir+*it).c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+            if (isCluster)
+            {
+             string src = *it+":"+homedir+"export";
+             string dest= mntDir+*it;
+             
+             logobj.localLog("Mounting directory "+ src + " at "+dest);
+             int rvalue = mount(src.c_str(),dest.c_str(),"auto", MS_RDONLY ,"");
+             if (rvalue==-1 && errno==EBUSY)
+                 logobj.localLog("Directory already mounted");
+             else if (rvalue==-1)
+                 logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+itos(errno)+"]"+"\n...Exiting");
+                
+            }
+        }
+    }
 }
 
-MapReduce::MapReduce(MPI_Comm communicator,int argc, char** argv)
+/*MapReduce::MapReduce(MPI_Comm communicator,int argc, char** argv)
 {
 	debug=1;
 	mpi_initialized_mr=0;
     chunksCompleted=0;
-    
-    logobj=Logging();
 	
 	comm = communicator;
 	MPI_Comm_rank(comm,&rank);
 	MPI_Comm_size(comm,&nprocs);
 
-    logobj.rank=rank;
     readDefaults("configuration/config.xml");
 
-}
+}*/
 
 MapReduce::~MapReduce()
 {
@@ -224,6 +371,9 @@ void MapReduce::sendRankMapping()
             rankMap[i/16][i%16]=lrankMap[i];        
         }
         logobj.localLog("Obtained Rank Map from rank 0");           
+        char tmpstr[16];
+        strcpy(tmpstr,rankMap[0]);
+        rootip=string(tmpstr);
     }
         
     
@@ -247,6 +397,21 @@ void MapReduce::sendRankMapping()
 		}
 	}
 	logobj.localLog("Determined the ranks of other processes running on the same node");           
+    
+    if(rank!=0 && isCluster) //Mounting root process's export directory. Should be mounted as Read/Write
+    {
+        logobj.localLog("Created directory : "+(mntDir+rootip));
+        mkdir((mntDir+rootip).c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);  
+        
+        string src = rootip+":"+homedir+"export";
+        string dest= mntDir+rootip;         
+        logobj.localLog("Mounting directory "+ src + " at "+dest);
+        int rvalue = mount(src.c_str(),dest.c_str(),"auto", MS_RDONLY ,"");
+        if (rvalue==-1 && errno==EBUSY)
+             logobj.localLog("Directory already mounted");
+        else if (rvalue==-1)
+             logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+itos(errno)+"]"+"\n...Exiting");    
+    }
 	getProcChunks(nodeProcs.size(),mypos,myip);
 }
 
@@ -256,7 +421,7 @@ void MapReduce::getProcChunks(int tprocs, int mypos, string myip)
     pugi::xml_document doc;
     if (!doc.load_file(chunkMapFile.c_str()))
     {
-        logobj.error("Cannot open the xml file chunkMap.xml "+chunkMapFile);
+        logobj.error("Cannot open the xml file chunkMap.xml"+chunkMapFile);
 		exit(-1);    
     }
 		
@@ -297,6 +462,21 @@ void MapReduce::getProcChunks(int tprocs, int mypos, string myip)
     logobj.localLog("Obtained list of chunks assigned to this process");           
 	//printChunks(chunks);
     islocal();
+      
+    if(isCluster) //Mounting its own export directory. Probably should be mounted Read/Write. For rank 0 must be mounted Read/Write
+    {
+        logobj.localLog("Created directory : "+(mntDir+myip));
+        mkdir((mntDir+myip).c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);          
+        
+        string src = myip+":"+homedir+"export";
+        string dest= mntDir+myip;         
+        logobj.localLog("Mounting directory "+ src + " at "+dest);
+        int rvalue = mount(src.c_str(),dest.c_str(),"auto", MS_RDONLY ,"");
+        if (rvalue==-1 && errno==EBUSY)
+             logobj.localLog("Directory already mounted");
+        else if (rvalue==-1)
+             logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+itos(errno)+"]"+"\n...Exiting");    
+    }
 }
 
 void MapReduce::printChunks(vector<ChunkInfo> chunks)
@@ -383,7 +563,6 @@ vector<primaryKV> MapReduce::createChunk(int front)
         //logobj.localLog("\tSize of chunk "+itos(chunks[front].number)+ " required, part "+itos(i+1)+" = "+itos(length));
         logobj.localLog("\tSize of chunk "+itos(chunks[front].number)+ " created, part "+itos(i+1)+" = "+itos(kv.value.length()));        
         //logobj.localLog("\tSize of chunk "+itos(chunks[front].number)+ " read, part "+itos(i+1)+" = "+itos(fin.gcount()));
-        
         fin.close();
     }    
     logobj.localLog("Size of chunk "+itos(chunks[front].number)+ " required  = "+itos(chunks[front].size));
@@ -428,6 +607,11 @@ void MapReduce::fetchdata(int index1, int index2, int filenum)
 
 void MapReduce::fetchNonLocal()
 { 
+    if (rank!=0 && isCluster) //rank 0 has already mounted all the required directories
+    {
+        mountDir();
+    }
+    
     logobj.localLog("Fetching non-local chunks...");
      for(int i=0;i<chunks.size();i++)
      {
@@ -449,7 +633,52 @@ void MapReduce::fetchNonLocal()
      }
      logobj.localLog("Chunks obtained "+itos(chunksObtained.size()));
 }
-
+void MapReduce::mountDir()
+{
+    logobj.localLog("Mounting directories ..");
+    vector<string> iplist;
+    for(int i=0;i<chunks.size();i++)
+     {
+         if (chunks[i].local==0)
+         {
+            int lim=chunks[i].chunk.size();
+            int filenum=0;
+            for(int j=0;j<lim;j++)
+            {
+                if (myip.compare(chunks[i].chunk[j].IP)!=0)
+                {
+                    if (chunks[i].chunk[j].IP.compare(rootip)!=0)
+                        uniqueInsert(iplist,chunks[i].chunk[j].IP); 
+                }
+            }    
+            chunksObtained.push(i);
+         }
+         
+     } 
+     /*Mount all required directories except rank 0's directory and own directory as they 
+      have already been mounted. Sufficient to mount READ ONLY*/
+     
+     mkdir(mntDir.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+     logobj.localLog("Created directory : "+mntDir);
+     
+     for (vector<string>::iterator it=iplist.begin(); it!=iplist.end();++it)
+     {
+         logobj.localLog("Created directory : "+(mntDir+*it));
+         mkdir((mntDir+*it).c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+         //string cmd="mount "+*it+":"+homedir+"export "+mntDir+*it;
+         //system(cmd.c_str());
+         string src = *it+":"+homedir+"export";
+         string dest= mntDir+*it;
+          
+         logobj.localLog("Mounting directory "+ src + " at "+dest);
+         int rvalue = mount(src.c_str(),dest.c_str(),"auto", MS_RDONLY ,"");
+         if (rvalue==-1 && errno==EBUSY)
+             logobj.localLog("Directory already mounted");
+         else if (rvalue==-1)
+             logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+itos(errno)+"]"+"\n...Exiting");
+     }     
+     
+}
 int MapReduce::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&, int&))
 {
     parseArguments(argc,argv);
@@ -459,7 +688,7 @@ int MapReduce::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&, int&
     }
     MPI_Barrier(comm);  
     sendRankMapping();
-    t1=thread(threadFunc1,this);
+    thread t1=thread(threadFunc1,this);
     
     int totalChunks=chunks.size();
     logobj.localLog("Total Chunks "+itos(totalChunks));
@@ -497,7 +726,7 @@ int MapReduce::map(int argc,char **argv, void(*mapfunc)(vector<string>, int&))
     }
     MPI_Barrier(comm);  
     sendRankMapping();
-    t1=thread(threadFunc1,this);
+	thread t1=thread(threadFunc1,this);
     
     int totalChunks=chunks.size();
     logobj.localLog("Total Chunks "+itos(totalChunks));
@@ -537,7 +766,6 @@ int MapReduce::map(int argc,char **argv, void(*mapfunc)(vector<string>, int&))
  * generating appropriate portion of data for its process  using it's process's rank and nprocs*/
 int MapReduce::map(void(*mapfunc)(int nprocs, int rank, int& kv))
 {  
-
     int kv;
     mapfunc(nprocs, rank, kv);
     return 1;
@@ -552,7 +780,7 @@ int MapReduce::map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primaryKV&,
     int kv;
     if (rank==0)
     {
-        t1=thread(genfunc,buffer,completed);
+        thread t1=thread(genfunc,buffer,completed);
     
         int curRank=1;/*rank 0 should not be assigned any maps*/
         while(flag)
@@ -588,7 +816,7 @@ int MapReduce::map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primaryKV&,
     }
     else
     {
-        t1 = thread(RecvData,buffer, completed, 0, comm, logobj);
+       thread t1 = thread(RecvData,buffer, completed, 0, comm, logobj);
         int i=1;
         while(flag)
         {
@@ -618,7 +846,7 @@ int MapReduce::map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primaryKV&,
                 i++;
             }
       }
-        t1.join();
+       t1.join();
     }
     
     return 1;
