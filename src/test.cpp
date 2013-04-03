@@ -8,14 +8,16 @@
 
 using namespace std;
 
+
 int main()
 {
-    
-struct statfs foo;
-//cout<<mount("/dev/sda3", "/media/hd","auto", MS_RDONLY, "")<<endl;
-//printf("Reason: %s [%d]\n",strerror(errno), errno);
 
-if (statfs ("/home/himanshu/mpidata", &foo)){
+struct statfs foo;
+cout<<mount("10.1.255.254:/root/export", "/root/mpidata/10.1.255.254","nfs", 0,"lock,vers=3,proto=udp,addr=10.1.255.254")<<endl;
+cout<<EBUSY<<endl;
+printf("Reason: %s [%d]\n",strerror(errno), errno);
+
+if (statfs ("/root/mpidata/10.1.255.254", &foo)){
     cout<<"filesystem not mounted"<<endl;
 }
 else

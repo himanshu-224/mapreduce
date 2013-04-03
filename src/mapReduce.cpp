@@ -8,6 +8,7 @@
 #include<algorithm>
 #include<unistd.h>
 #include<sys/stat.h>
+#include <sys/statfs.h>
 #include<sys/mount.h>
 #include<error.h>
 
@@ -16,6 +17,7 @@
 #include "pugixml/pugixml.hpp"
 
 using namespace std;
+#define NFS_SUPER_MAGIC 0x6969
 
 string itos(int num);
 string extractIP(string str);
@@ -113,8 +115,8 @@ void MapReduce::sendDefaults()
     ifstream fin (ipListFile.c_str());
     fin>>singleip;
     fin.close();    
-    
-    globalchunkMapFile=homedir+singleip+"/"+chunkMapFile.substr(homedir.length());
+    int pos=chunkMapFile.find("export");
+    globalchunkMapFile=mntDir+singleip+chunkMapFile.substr(pos+6);
     }
     else
         globalchunkMapFile=chunkMapFile;
@@ -221,21 +223,34 @@ MapReduce::MapReduce(int argc, char** argv)
         
         for (vector<string>::iterator it=iplist.begin(); it!=iplist.end();++it)
         {
-            logobj.localLog("Created directory : "+(mntDir+*it));
-            mkdir((mntDir+*it).c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-            if (isCluster)
-            {
-             string src = *it+":"+homedir+"export";
-             string dest= mntDir+*it;
-             
-             logobj.localLog("Mounting directory "+ src + " at "+dest);
-             int rvalue = mount(src.c_str(),dest.c_str(),"auto", MS_RDONLY ,"");
-             if (rvalue==-1 && errno==EBUSY)
-                 logobj.localLog("Directory already mounted");
-             else if (rvalue==-1)
-                 logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+itos(errno)+"]"+"\n...Exiting");
-                
-            }
+			if (isCluster)
+			{
+				struct statfs foo;
+  			    string src = *it+":"+homedir+"export";
+   			    string dest= mntDir+*it;
+				int notMounted=statfs (dest.c_str(), &foo);
+				if ((not notMounted)&& (foo.f_type == NFS_SUPER_MAGIC))
+				{  
+					logobj.localLog("Directory "+ src + " already mounted  at "+dest);
+				}
+				else
+				{
+					if (notMounted) //not mounted, .i.e directory does not exist
+					{
+		        	mkdir(dest.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);  
+					logobj.localLog("Created directory : "+dest);
+					}      
+    			    logobj.localLog("Mounting directory "+ src + " at "+dest);
+
+					string flags="nolock,vers=3,proto=udp,addr="+*it;
+    			    int rvalue = mount(src.c_str(),dest.c_str(),"nfs", MS_RDONLY ,flags.c_str());
+    			    if (rvalue==-1 && errno==EBUSY)
+    			         logobj.localLog("Directory already mounted");
+		    	    else if (rvalue==-1)
+    			         logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+itos(errno)+"]"+"\n...Exiting");    
+				}
+			}	
+
         }
     }
 }
@@ -400,17 +415,33 @@ void MapReduce::sendRankMapping()
     
     if(rank!=0 && isCluster) //Mounting root process's export directory. Should be mounted as Read/Write
     {
-        logobj.localLog("Created directory : "+(mntDir+rootip));
-        mkdir((mntDir+rootip).c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);  
-        
-        string src = rootip+":"+homedir+"export";
-        string dest= mntDir+rootip;         
-        logobj.localLog("Mounting directory "+ src + " at "+dest);
-        int rvalue = mount(src.c_str(),dest.c_str(),"auto", MS_RDONLY ,"");
-        if (rvalue==-1 && errno==EBUSY)
-             logobj.localLog("Directory already mounted");
-        else if (rvalue==-1)
-             logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+itos(errno)+"]"+"\n...Exiting");    
+        mkdir(mntDir.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+        logobj.localLog("Created directory : "+mntDir);
+
+		struct statfs foo;
+  	    string src = rootip+":"+homedir+"export";
+   	    string dest= mntDir+rootip; 
+		int notMounted=statfs (dest.c_str(), &foo);
+		if ((not notMounted)&& (foo.f_type == NFS_SUPER_MAGIC))
+		{  
+			logobj.localLog("Directory "+ src + " already mounted  at "+dest);
+		}
+		else
+		{
+			if (notMounted) //not mounted, .i.e directory does not exist
+			{
+	        	mkdir(dest.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);  
+				logobj.localLog("Created directory : "+dest);
+			}      
+    	    logobj.localLog("Mounting directory "+ src + " at "+dest);
+
+			string flags="nolock,vers=3,proto=udp,addr="+rootip;
+    	    int rvalue = mount(src.c_str(),dest.c_str(),"nfs", 0 ,flags.c_str());
+    	    if (rvalue==-1 && errno==EBUSY)
+    	         logobj.localLog("Directory already mounted");
+    	    else if (rvalue==-1)
+    	         logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+itos(errno)+"]"+"\n...Exiting");    
+		}
     }
 	getProcChunks(nodeProcs.size(),mypos,myip);
 }
@@ -421,7 +452,7 @@ void MapReduce::getProcChunks(int tprocs, int mypos, string myip)
     pugi::xml_document doc;
     if (!doc.load_file(chunkMapFile.c_str()))
     {
-        logobj.error("Cannot open the xml file chunkMap.xml"+chunkMapFile);
+        logobj.error("Cannot open the xml file "+chunkMapFile);
 		exit(-1);    
     }
 		
@@ -465,18 +496,37 @@ void MapReduce::getProcChunks(int tprocs, int mypos, string myip)
       
     if(isCluster) //Mounting its own export directory. Probably should be mounted Read/Write. For rank 0 must be mounted Read/Write
     {
-        logobj.localLog("Created directory : "+(mntDir+myip));
-        mkdir((mntDir+myip).c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);          
-        
-        string src = myip+":"+homedir+"export";
-        string dest= mntDir+myip;         
-        logobj.localLog("Mounting directory "+ src + " at "+dest);
-        int rvalue = mount(src.c_str(),dest.c_str(),"auto", MS_RDONLY ,"");
-        if (rvalue==-1 && errno==EBUSY)
-             logobj.localLog("Directory already mounted");
-        else if (rvalue==-1)
-             logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+itos(errno)+"]"+"\n...Exiting");    
-    }
+
+		struct statfs foo;
+  	    string src = myip+":"+homedir+"export";
+   	    string dest= mntDir+myip; 
+		int notMounted=statfs (dest.c_str(), &foo);
+		if ((not notMounted)&& (foo.f_type == NFS_SUPER_MAGIC))
+		{  
+			logobj.localLog("Directory "+ src + " already mounted  at "+dest);
+		}
+		else
+		{
+			if (notMounted) //not mounted, .i.e directory does not exist
+			{
+	        	mkdir(dest.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);  
+				logobj.localLog("Created directory : "+dest);
+			}      
+    	    logobj.localLog("Mounting directory "+ src + " at "+dest);
+			string flags;
+
+			if (rank==0)
+				flags="nolock,vers=3,proto=udp,addr="+myip;  //should be lock
+			else
+				flags="nolock,vers=3,proto=udp,addr="+myip;
+
+    	    int rvalue = mount(src.c_str(),dest.c_str(),"nfs", 0 ,flags.c_str());
+    	    if (rvalue==-1 && errno==EBUSY)
+    	         logobj.localLog("Directory already mounted");
+    	    else if (rvalue==-1)
+    	         logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+itos(errno)+"]"+"\n...Exiting");    
+		}
+	}
 }
 
 void MapReduce::printChunks(vector<ChunkInfo> chunks)
@@ -658,24 +708,33 @@ void MapReduce::mountDir()
      /*Mount all required directories except rank 0's directory and own directory as they 
       have already been mounted. Sufficient to mount READ ONLY*/
      
-     mkdir(mntDir.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-     logobj.localLog("Created directory : "+mntDir);
-     
      for (vector<string>::iterator it=iplist.begin(); it!=iplist.end();++it)
      {
-         logobj.localLog("Created directory : "+(mntDir+*it));
-         mkdir((mntDir+*it).c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-         //string cmd="mount "+*it+":"+homedir+"export "+mntDir+*it;
-         //system(cmd.c_str());
-         string src = *it+":"+homedir+"export";
-         string dest= mntDir+*it;
-          
-         logobj.localLog("Mounting directory "+ src + " at "+dest);
-         int rvalue = mount(src.c_str(),dest.c_str(),"auto", MS_RDONLY ,"");
-         if (rvalue==-1 && errno==EBUSY)
-             logobj.localLog("Directory already mounted");
-         else if (rvalue==-1)
-             logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+itos(errno)+"]"+"\n...Exiting");
+		struct statfs foo;
+  	    string src = *it+":"+homedir+"export";
+   	    string dest= mntDir+*it; 
+		int notMounted=statfs (dest.c_str(), &foo);
+		if ((not notMounted)&& (foo.f_type == NFS_SUPER_MAGIC))
+		{  
+			logobj.localLog("Directory "+ src + " already mounted  at "+dest);
+		}
+		else
+		{
+			if (notMounted) //not mounted, .i.e directory does not exist
+			{
+	        	mkdir(dest.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);  
+				logobj.localLog("Created directory : "+dest);
+			}      
+    	    logobj.localLog("Mounting directory "+ src + " at "+dest);
+
+			string flags="nolock,vers=3,proto=udp,addr="+*it;
+    	    int rvalue = mount(src.c_str(),dest.c_str(),"nfs", MS_RDONLY ,flags.c_str());
+    	    if (rvalue==-1 && errno==EBUSY)
+    	         logobj.localLog("Directory already mounted");
+    	    else if (rvalue==-1)
+    	         logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+itos(errno)+"]"+"\n...Exiting");    
+		}
+
      }     
      
 }
