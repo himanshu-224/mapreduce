@@ -7,7 +7,7 @@ void func(vector<primaryKV> &kv, int &n);
 int main(int argc, char **argv)
 {
 
-MapReduce mr= MapReduce(argc,argv);
+MapReduce<int,int> mr= MapReduce<int,int>(argc,argv);
 mr.map(argc,argv,func);
 KeyValue<int,int> kv = KeyValue<int,int>();
 kv.add(5,10);
