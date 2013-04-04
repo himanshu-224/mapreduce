@@ -9,6 +9,33 @@
 #include "mapReduce.h"
 #include "logging.h"
 
+#define INT_MAX 0x7FFFFFFF
+
+template <class K,class V>
+KeyValue<K,V>::KeyValue()
+{
+	int curtime = time(NULL);
+
+	int n = 100;
+	filename = (char*)malloc(n);
+	if(filename == NULL)
+	{
+		char str[255];
+		char name[255];
+		int namelen;
+		MPI_Get_processor_name(name,&namelen);
+		name[namelen]='\0';
+		
+		sprintf(str,"ERROR on proc %d (%s): Failed to allocate %d	 bytes for array filename\n",me,name,n);
+		logobj->error(str);
+	}
+	nkv = 0;
+	setType();
+	
+	sprintf(filename,"/export/mapReduce/keyValue/kv.%d",curtime);
+	fileflag = 0;
+	fp=NULL;
+}
 template <class K, class V>
 KeyValue<K,V>::KeyValue(MapReduce *mr_caller, MPI_Comm communicator, Logging *log_caller)
 {
@@ -224,10 +251,39 @@ void KeyValue<string,string>::setType()
 	keytype = 4;
 	valuetype = 4;
 }
+
 // Add a single key value pair 
 
 template <class K, class V>
 void KeyValue<K,V>::add(K key, V value)
 {
-	
+	KValue newkv;
+	newkv.key = key;
+	newkv.value = value;
+	if(keytype==4){
+		newkv.ksize = key.size();
+	}
+	else{
+		newkv.ksize = sizeof(K);
+	}
+	if(valuetype==4){
+		newkv.vsize = value.size();
+	}
+	else{
+		newkv.vsize = sizeof(V);
+	}
+	long tsize = newkv.ksize+newkv.vsize;
+	if(tsize > INT_MAX)					// A limit on size of key value pair
+		logobj->error("Single Key Value pair size exceeds int size");
+	kv.push_back(newkv);
+	nkv++;
+}
+
+//test function
+template <class K, class V>
+void KeyValue<K,V>::printkv()
+{
+	for(int index=0;index < kv.size; ++index){
+		cout<<index+1<<"\tKey: "<<kv.at(index).key<<"\tValue: "<<kv.at(index).value<<endl;
+	}
 }

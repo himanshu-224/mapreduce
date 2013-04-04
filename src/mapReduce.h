@@ -5,11 +5,13 @@
 #include <thread>
 #include "dataStruc.h"
 #include "logging.h" 
+#include "keyValue.h"
 
 #ifndef MAP_REDUCE
 #define MAP_REDUCE
 
 using namespace std;
+
 class MapReduce
 {
 private:
