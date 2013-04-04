@@ -11,7 +11,6 @@
 #include <time.h>
 #include <string>
 
-#include "mapReduce.h"
 #include "logging.h"
 
 #define INT_MAX 0x7FFFFFFF
@@ -22,11 +21,9 @@ using namespace std;
 template <class K,class V>
 class KeyValue
 {
-	friend class MapReduce;
 
 private:
 	// Add private members of class here
-	MapReduce *mr;
 	MPI_Comm comm;
 	Logging *logobj;
 	int me;
@@ -56,7 +53,7 @@ private:
 
 public:
 	KeyValue();
-	KeyValue(class MapReduce *, MPI_Comm, Logging *);
+	KeyValue(MPI_Comm, Logging *);
 	~KeyValue();
 	
 	void add(K, V);
@@ -89,9 +86,8 @@ KeyValue<K,V>::KeyValue()
 	fp=NULL;
 }
 template <class K, class V>
-KeyValue<K,V>::KeyValue(MapReduce *mr_caller, MPI_Comm communicator, Logging *log_caller)
+KeyValue<K,V>::KeyValue(MPI_Comm communicator, Logging *log_caller)
 {
-	mr = mr_caller;
 	comm = communicator;
 	logobj = log_caller;
 	MPI_Comm_rank(comm,&me);
@@ -130,175 +126,175 @@ KeyValue<K,V>::~KeyValue()
 
 // set the type of key and value, which will be sent to reducer later
 template <>
-void KeyValue<char,char>::setType()
+inline void KeyValue<char,char>::setType()
 {
 	keytype = 0;
 	valuetype = 0;
 }
 
 template <>
-void KeyValue<char,int>::setType()
+inline void KeyValue<char,int>::setType()
 {
 	keytype = 0;
 	valuetype = 1;
 }
 
 template <>
-void KeyValue<char,float>::setType()
+inline void KeyValue<char,float>::setType()
 {
 	keytype = 0;
 	valuetype = 2;
 }
 
 template <>
-void KeyValue<char,double>::setType()
+inline void KeyValue<char,double>::setType()
 {
 	keytype = 0;
 	valuetype = 3;
 }
 
 template <>
-void KeyValue<char,string>::setType()
+inline void KeyValue<char,string>::setType()
 {
 	keytype = 0;
 	valuetype = 4;
 }
 
 template <>
-void KeyValue<int,char>::setType()
+inline void KeyValue<int,char>::setType()
 {
 	keytype = 1;
 	valuetype = 0;
 }
 
 template <>
-void KeyValue<int,int>::setType()
+inline void KeyValue<int,int>::setType()
 {
 	keytype = 1;
 	valuetype = 1;
 }
 
 template <>
-void KeyValue<int,float>::setType()
+inline void KeyValue<int,float>::setType()
 {
 	keytype = 1;
 	valuetype = 2;
 }
 
 template <>
-void KeyValue<int,double>::setType()
+inline void KeyValue<int,double>::setType()
 {
 	keytype = 1;
 	valuetype = 3;
 }
 
 template <>
-void KeyValue<int,string>::setType()
+inline void KeyValue<int,string>::setType()
 {
 	keytype = 1;
 	valuetype = 4;
 }
 
 template <>
-void KeyValue<float,char>::setType()
+inline void KeyValue<float,char>::setType()
 {
 	keytype = 2;
 	valuetype = 0;
 }
 
 template <>
-void KeyValue<float,int>::setType()
+inline void KeyValue<float,int>::setType()
 {
 	keytype = 2;
 	valuetype = 1;
 }
 
 template <>
-void KeyValue<float,float>::setType()
+inline void KeyValue<float,float>::setType()
 {
 	keytype = 2;
 	valuetype = 2;
 }
 
 template <>
-void KeyValue<float,double>::setType()
+inline void KeyValue<float,double>::setType()
 {
 	keytype = 2;
 	valuetype = 3;
 }
 
 template <>
-void KeyValue<float,string>::setType()
+inline void KeyValue<float,string>::setType()
 {
 	keytype = 2;
 	valuetype = 4;
 }
 
 template <>
-void KeyValue<double,char>::setType()
+inline void KeyValue<double,char>::setType()
 {
 	keytype = 3;
 	valuetype = 0;
 }
 
 template <>
-void KeyValue<double,int>::setType()
+inline void KeyValue<double,int>::setType()
 {
 	keytype = 3;
 	valuetype = 1;
 }
 
 template <>
-void KeyValue<double,float>::setType()
+inline void KeyValue<double,float>::setType()
 {
 	keytype = 3;
 	valuetype = 2;
 }
 
 template <>
-void KeyValue<double,double>::setType()
+inline void KeyValue<double,double>::setType()
 {
 	keytype = 3;
 	valuetype = 3;
 }
 
 template <>
-void KeyValue<double,string>::setType()
+inline void KeyValue<double,string>::setType()
 {
 	keytype = 3;
 	valuetype = 4;
 }
 
 template <>
-void KeyValue<string,char>::setType()
+inline void KeyValue<string,char>::setType()
 {
 	keytype = 4;
 	valuetype = 0;
 }
 
 template <>
-void KeyValue<string,int>::setType()
+inline void KeyValue<string,int>::setType()
 {
 	keytype = 4;
 	valuetype = 1;
 }
 
 template <>
-void KeyValue<string,float>::setType()
+inline void KeyValue<string,float>::setType()
 {
 	keytype = 4;
 	valuetype = 2;
 }
 
 template <>
-void KeyValue<string,double>::setType()
+inline void KeyValue<string,double>::setType()
 {
 	keytype = 4;
 	valuetype = 3;
 }
 
 template <>
-void KeyValue<string,string>::setType()
+inline void KeyValue<string,string>::setType()
 {
 	keytype = 4;
 	valuetype = 4;
