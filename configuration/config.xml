@@ -1,6 +1,6 @@
 <Configuration>
 <Paths>
-<HomeDirectory>/home/himanshu/</HomeDirectory>
+<HomeDirectory>/home/atulag/</HomeDirectory>
 <IPListFile>export/mapReduce/ipList.txt</IPListFile>
 <NodeInfoFile>export/mapReduce/nodesInfo.xml</NodeInfoFile>
 <ChunkMapFile>export/mapReduce/chunkMap.xml</ChunkMapFile>

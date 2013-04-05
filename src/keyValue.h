@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <string>
+#include <algorithm>
 
 #include "logging.h"
 
@@ -36,7 +37,7 @@ private:
 		V value;
 	};
 	
-	deque<KValue *> kv;
+	deque<KValue> kv;
 	int nkv;
 	// Type codes char - 0, int - 1, float - 2, double - 3, string - 4
 	int keytype;
@@ -50,7 +51,7 @@ private:
 	int fileflag;                     // 1 if file exists, 0 if not
 	
 	void setType();
-
+	
 public:
 	KeyValue();
 	KeyValue(MPI_Comm, Logging *);
@@ -58,6 +59,9 @@ public:
 	
 	void add(K, V);
 	void printkv();
+	void sortkv(int);
+	void sortkv();
+	static bool compkv(const KValue&, const KValue&);
 };
 
 template <class K,class V>
@@ -305,9 +309,9 @@ inline void KeyValue<string,string>::setType()
 template <class K, class V>
 void KeyValue<K,V>::add(K key, V value)
 {
-	KValue *newkv = new KValue;
-	newkv->key = key;
-	newkv->value = value;
+	KValue newkv;
+	newkv.key = key;
+	newkv.value = value;
 	/*if(keytype==4){
 		newkv.ksize = key.size();
 	}
@@ -320,9 +324,9 @@ void KeyValue<K,V>::add(K key, V value)
 	else{
 		newkv.vsize = sizeof(V);
 	}*/
-	newkv->ksize = sizeof(key);
-	newkv->vsize = sizeof(value);
-	long tsize = newkv->ksize+newkv->vsize;
+	newkv.ksize = sizeof(key);
+	newkv.vsize = sizeof(value);
+	long tsize = newkv.ksize+newkv.vsize;
 	if(tsize > INT_MAX)					// A limit on size of key value pair
 		logobj->error("Single Key Value pair size exceeds int size");
 	kv.push_back(newkv);
@@ -334,9 +338,256 @@ template <class K, class V>
 void KeyValue<K,V>::printkv()
 {
 	for(int index=0;index < kv.size(); ++index){
-		cout<<index+1<<"\tKey: "<<kv.at(index)->key<<"\tValue: "<<kv.at(index)->value<<endl;
+		cout<<index+1<<"\tKey: "<<kv.at(index).key<<"\tValue: "<<kv.at(index).value<<endl;
 	}
 }
 
+//sort the key values according to key and value
+template <class K, class V>
+void KeyValue<K,V>::sortkv(int numkey)
+{
+	sort(kv.begin(),kv.begin()+numkey,compkv);
+}
 
+template <class K,class V>
+void KeyValue<K,V>::sortkv()
+{
+	int numkey = nkv;
+	sort(kv.begin(),kv.begin()+numkey,compkv);
+}
+
+template <>
+inline bool KeyValue<char,char>::compkv(const KValue& k1, const KValue& k2)
+{
+	if(k1.key==k2.key)
+		return (k1.value<k2.value);
+	else
+		return (k1.key<k2.key);
+}
+
+template <>
+inline bool KeyValue<char,int>::compkv(const KValue& k1, const KValue& k2)
+{
+	if(k1.key==k2.key)
+		return (k1.value<k2.value);
+	else
+		return (k1.key<k2.key);
+}
+
+template <>
+inline bool KeyValue<char,float>::compkv(const KValue& k1, const KValue& k2)
+{
+	if(k1.key==k2.key)
+		return (k1.value<k2.value);
+	else
+		return (k1.key<k2.key);
+}
+
+template <>
+inline bool KeyValue<char,double>::compkv(const KValue& k1, const KValue& k2)
+{
+	if(k1.key==k2.key)
+		return (k1.value<k2.value);
+	else
+		return (k1.key<k2.key);
+}
+
+template <>
+inline bool KeyValue<char,string>::compkv(const KValue& k1, const KValue& k2)
+{
+	if(k1.key==k2.key)
+		return lexicographical_compare(k1.value.begin(),k1.value.end(),k2.value.begin(),k2.value.end());
+	else
+		return (k1.key<k2.key);
+}
+
+template <>
+inline bool KeyValue<int,char>::compkv(const KValue& k1, const KValue& k2)
+{
+	if(k1.key==k2.key)
+		return (k1.value<k2.value);
+	else
+		return (k1.key<k2.key);
+}
+
+template <>
+inline bool KeyValue<int,int>::compkv(const KValue& k1, const KValue& k2)
+{
+	if(k1.key==k2.key)
+		return (k1.value<k2.value);
+	else
+		return (k1.key<k2.key);
+}
+
+template <>
+inline bool KeyValue<int,float>::compkv(const KValue& k1, const KValue& k2)
+{
+	if(k1.key==k2.key)
+		return (k1.value<k2.value);
+	else
+		return (k1.key<k2.key);
+}
+
+template <>
+inline bool KeyValue<int,double>::compkv(const KValue& k1, const KValue& k2)
+{
+	if(k1.key==k2.key)
+		return (k1.value<k2.value);
+	else
+		return (k1.key<k2.key);
+}
+
+template <>
+inline bool KeyValue<int,string>::compkv(const KValue& k1, const KValue& k2)
+{
+	if(k1.key==k2.key)
+		return lexicographical_compare(k1.value.begin(),k1.value.end(),k2.value.begin(),k2.value.end());
+	else
+		return (k1.key<k2.key);
+}
+
+template <>
+inline bool KeyValue<float,char>::compkv(const KValue& k1, const KValue& k2)
+{
+	if(k1.key==k2.key)
+		return (k1.value<k2.value);
+	else
+		return (k1.key<k2.key);
+}
+
+template <>
+inline bool KeyValue<float,int>::compkv(const KValue& k1, const KValue& k2)
+{
+	if(k1.key==k2.key)
+		return (k1.value<k2.value);
+	else
+		return (k1.key<k2.key);
+}
+
+template <>
+inline bool KeyValue<float,float>::compkv(const KValue& k1, const KValue& k2)
+{
+	if(k1.key==k2.key)
+		return (k1.value<k2.value);
+	else
+		return (k1.key<k2.key);
+}
+
+template <>
+inline bool KeyValue<float,double>::compkv(const KValue& k1, const KValue& k2)
+{
+	if(k1.key==k2.key)
+		return (k1.value<k2.value);
+	else
+		return (k1.key<k2.key);
+}
+
+template <>
+inline bool KeyValue<float,string>::compkv(const KValue& k1, const KValue& k2)
+{
+	if(k1.key==k2.key)
+		return lexicographical_compare(k1.value.begin(),k1.value.end(),k2.value.begin(),k2.value.end());
+	else
+		return (k1.key<k2.key);
+}
+
+template <>
+inline bool KeyValue<double,char>::compkv(const KValue& k1, const KValue& k2)
+{
+	if(k1.key==k2.key)
+		return (k1.value<k2.value);
+	else
+		return (k1.key<k2.key);
+}
+
+template <>
+inline bool KeyValue<double,int>::compkv(const KValue& k1, const KValue& k2)
+{
+	if(k1.key==k2.key)
+		return (k1.value<k2.value);
+	else
+		return (k1.key<k2.key);
+}
+
+template <>
+inline bool KeyValue<double,float>::compkv(const KValue& k1, const KValue& k2)
+{
+	if(k1.key==k2.key)
+		return (k1.value<k2.value);
+	else
+		return (k1.key<k2.key);
+}
+
+template <>
+inline bool KeyValue<double,double>::compkv(const KValue& k1, const KValue& k2)
+{
+	if(k1.key==k2.key)
+		return (k1.value<k2.value);
+	else
+		return (k1.key<k2.key);
+}
+
+template <>
+inline bool KeyValue<double,string>::compkv(const KValue& k1, const KValue& k2)
+{
+	if(k1.key==k2.key)
+		return lexicographical_compare(k1.value.begin(),k1.value.end(),k2.value.begin(),k2.value.end());
+	else
+		return (k1.key<k2.key);
+}
+
+template <>
+inline bool KeyValue<string,char>::compkv(const KValue& k1, const KValue& k2)
+{
+	if (lexicographical_compare(k1.key.begin(),k1.key.end(),k2.key.begin(),k2.key.end()))
+		return true;
+	else if(lexicographical_compare(k2.key.begin(),k2.key.end(),k1.key.begin(),k1.key.end()))
+		return false;
+	else
+		return (k1.value<k2.value);
+}
+
+template <>
+inline bool KeyValue<string,int>::compkv(const KValue& k1, const KValue& k2)
+{
+	if (lexicographical_compare(k1.key.begin(),k1.key.end(),k2.key.begin(),k2.key.end()))
+		return true;
+	else if(lexicographical_compare(k2.key.begin(),k2.key.end(),k1.key.begin(),k1.key.end()))
+		return false;
+	else
+		return (k1.value<k2.value);
+}
+
+template <>
+inline bool KeyValue<string,float>::compkv(const KValue& k1, const KValue& k2)
+{
+	if (lexicographical_compare(k1.key.begin(),k1.key.end(),k2.key.begin(),k2.key.end()))
+		return true;
+	else if(lexicographical_compare(k2.key.begin(),k2.key.end(),k1.key.begin(),k1.key.end()))
+		return false;
+	else
+		return (k1.value<k2.value);
+}
+
+template <>
+inline bool KeyValue<string,double>::compkv(const KValue& k1, const KValue& k2)
+{
+	if (lexicographical_compare(k1.key.begin(),k1.key.end(),k2.key.begin(),k2.key.end()))
+		return true;
+	else if(lexicographical_compare(k2.key.begin(),k2.key.end(),k1.key.begin(),k1.key.end()))
+		return false;
+	else
+		return (k1.value<k2.value);
+}
+
+template <>
+inline bool KeyValue<string,string>::compkv(const KValue& k1, const KValue& k2)
+{
+	if (lexicographical_compare(k1.key.begin(),k1.key.end(),k2.key.begin(),k2.key.end()))
+		return true;
+	else if(lexicographical_compare(k2.key.begin(),k2.key.end(),k1.key.begin(),k1.key.end()))
+		return false;
+	else
+		return lexicographical_compare(k1.value.begin(),k1.value.end(),k2.value.begin(),k2.value.end());
+}
 #endif
