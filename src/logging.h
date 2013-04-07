@@ -23,6 +23,7 @@ public:
     void localLog(string logmsg);
     void localLog(int logmsg);
     void error(string err);
+    void warning(string err);
 };    
 
 #endif

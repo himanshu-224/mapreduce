@@ -1,31 +1,30 @@
 #include <iostream>
-#include<string.h>
-#include<stdio.h>
-#include <sys/statfs.h>
-#include <errno.h>
-#include<sys/mount.h>
-#define NFS_SUPER_MAGIC 0x6969
+#include <iterator>
+#include <vector>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <algorithm>
 
 using namespace std;
 
+int main () {
+  vector<int> t(10,0);
+  int i,j = 1024*64;
+  for (i =0 ;i<10;i++)
+	  t[i] = rand()%j + 1;
+  int minpos;
+  for(i = 0; i<10;i++)
+	  cout<<t[i]<<" ";
+  cout<<endl;
+  for(i=0;i<10;i++){
+	minpos = distance(t.begin(),min_element(t.begin(),t.end()));
+	cout<<minpos<<endl;
+	t.erase(t.begin()+minpos);
+	for(j = 0; j<t.size();j++)
+		cout<<t[j]<<" ";
+	cout<<endl;
+  }
 
-int main()
-{
-
-struct statfs foo;
-cout<<mount("10.1.255.254:/root/export", "/root/mpidata/10.1.255.254","nfs", 0,"lock,vers=3,proto=udp,addr=10.1.255.254")<<endl;
-cout<<EBUSY<<endl;
-printf("Reason: %s [%d]\n",strerror(errno), errno);
-
-if (statfs ("/root/mpidata/10.1.255.254", &foo)){
-    cout<<"filesystem not mounted"<<endl;
-}
-else
-{
-    cout<<"filesystem mounted"<<endl;
-}
-if (foo.f_type == NFS_SUPER_MAGIC) {
-    cout<<"File present on NFS"<<endl;
-}
-
+  return 0;
 }
