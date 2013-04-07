@@ -54,6 +54,7 @@ private:
 	int chunkSize;
     int isCluster;
 	int numMaps;
+    int numReducers;
 	vector<string> fileList;
 	vector<string> dirList;
 	vector<ChunkInfo> chunks;
@@ -75,7 +76,7 @@ int map(int argc,char **argv, void(*mapfunc)(vector<string>, int&));
 int map(void(*mapfunc)(int nprocs, int rank, int&));
 int map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primaryKV&, int&));
 
-MapReduce(int, char**);
+MapReduce(int, char**,int);
 MapReduce(MPI_Comm communicator,int, char**);
 ~MapReduce();
 void readDefaults(string configFile);
@@ -91,6 +92,7 @@ void islocal();
 void mountDir();
 void fetchdata(int index1,int index2, int filenum);
 void fetchNonLocal();
+void reduceReceive();
 vector<primaryKV> createChunk(int front);
 
 void sendData(char* chunk,int size, int curRank);
@@ -258,10 +260,27 @@ void threadFunc1(MapReduce<K,V> *obj)
     obj->fetchNonLocal();
 }
 
+template<class K, class V>
+void ReducerReceive(MapReduce<K,V> *mr) 
+{
+    mr->reduceReceive();
+}
+
+void ReducerSort()
+{
+}
 
 
 template <class K,class V>
-MapReduce<K,V>::MapReduce(int argc, char** argv)
+void MapReduce<K,V>::reduceReceive()
+{
+    
+}
+
+
+
+template <class K,class V>
+MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
 {
     debug=1;
     mpi_initialized_mr=1;
@@ -344,6 +363,12 @@ MapReduce<K,V>::MapReduce(int argc, char** argv)
 
         }
     }
+    if (rank<numReducers)
+    {
+        thread(ReducerReceive<K,V>,this);
+    }
+    MPI_Barrier(comm);
+   
 }
 
 /*MapReduce::MapReduce(MPI_Comm communicator,int argc, char** argv)
@@ -460,9 +485,17 @@ void MapReduce<K,V>::sendRankMapping()
         {
             strcpy(rankMap[i],singleip);
             i++;
+            if (i==nprocs)
+                break;
         }
         fin.close();
         
+        if (i<nprocs){
+            for(int j=i;j<nprocs;j++)
+            {
+                strcpy(rankMap[j],rankMap[(j-i)%i]);
+            }
+        }
         logobj.localLog("Obtained Rank Map from "+ipListFile);
         for(i=0;i<nprocs*16;i++)
         {
@@ -470,7 +503,6 @@ void MapReduce<K,V>::sendRankMapping()
             
         }   
     }
-    
     
     MPI_Bcast(lrankMap,nprocs*16,MPI_CHAR,0,comm);
     vector<int> nodeProcs;
@@ -487,7 +519,6 @@ void MapReduce<K,V>::sendRankMapping()
         rootip=string(tmpstr);
     }
         
-    
     strcpy(str,rankMap[rank]);
     
     for(i=0;i<nprocs;i++)
