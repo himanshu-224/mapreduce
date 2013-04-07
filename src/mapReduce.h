@@ -95,6 +95,9 @@ vector<primaryKV> createChunk(int front);
 
 void sendData(char* chunk,int size, int curRank);
 
+void addkv(K, V);
+void finalisemap();
+
 };
 
 //End of header file part
@@ -867,6 +870,7 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
             /*Insert Map Code Here*/
             int kv;
             mapfunc(chunk,kv);
+	    finalisemap();
             /*Insert map Code here*/
         }
         else
@@ -916,6 +920,7 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<string>, int
             }
             int kv;
             mapfunc(pathList,kv);
+	    finalisemap();
             /*Insert map Code here*/
         }
         else
@@ -934,6 +939,7 @@ int MapReduce<K,V>::map(void(*mapfunc)(int nprocs, int rank, int& kv))
 {  
     int kv;
     mapfunc(nprocs, rank, kv);
+    finalisemap();
     return 1;
 }
 
@@ -1009,7 +1015,8 @@ int MapReduce<K,V>::map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primar
                 primaryKV chk;
                 chk.key=itos((nprocs-1)*i+rank);
                 chk.value=chunk;
-                mapfunc(chk,kv);        
+                mapfunc(chk,kv);
+		finalisemap();
                 i++;
             }
       }
@@ -1059,7 +1066,18 @@ void RecvData(queue<char> &buffer, int &completed, int recvRank, MPI_Comm comm, 
 }
 
 
+// Wrapper functions to operate on keyvalue pair
+template <class K, class V>
+void MapReduce<K,V>::addkv(K key, V value)
+{
+	kv.add(key,value);
+}
 
-
+template <class K, class V>
+void MapReduce<K,V>::finalisemap()
+{
+	int t = kv.sortkv();
+	kv.partitionkv(numReducers,t);
+}
 
 #endif
