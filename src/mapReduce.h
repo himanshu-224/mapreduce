@@ -93,6 +93,7 @@ void mountDir();
 void fetchdata(int index1,int index2, int filenum);
 void fetchNonLocal();
 void reduceReceive();
+void reduceSort();
 vector<primaryKV> createChunk(int front);
 
 void sendData(char* chunk,int size, int curRank);
@@ -266,13 +267,21 @@ void ReducerReceive(MapReduce<K,V> *mr)
     mr->reduceReceive();
 }
 
-void ReducerSort()
+template<class K, class V>
+void ReducerSort(MapReduce<K,V> *mr)
 {
+    mr->reduceSort();
 }
 
 
 template <class K,class V>
 void MapReduce<K,V>::reduceReceive()
+{
+    
+}
+
+template <class K,class V>
+void MapReduce<K,V>::reduceSort()
 {
     
 }
@@ -363,9 +372,10 @@ MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
 
         }
     }
+    thread t2;
     if (rank<numReducers)
     {
-        thread(ReducerReceive<K,V>,this);
+        t2 = thread(ReducerReceive<K,V>,this);
     }
     MPI_Barrier(comm);
    
@@ -882,6 +892,13 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
         getChunks();    
     }
     MPI_Barrier(comm);  
+    
+    thread t3;
+    if (rank<numReducers)
+    {
+        t3=thread(ReducerSort<K,V>,this);
+    }  
+    
     sendRankMapping();
     thread t1=thread(threadFunc1<K,V>,this);
     
@@ -906,6 +923,9 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
         }
     }  
     t1.join();
+    
+    if (rank<numReducers)
+        t3.join();
     return 1;
 }
 
@@ -919,8 +939,16 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<string>, int
     if (rank==0)
     {   
         getChunks();    
-    }
+    }  
+    
     MPI_Barrier(comm);  
+    
+    thread t3;
+    if (rank<numReducers)
+    {
+        t3=thread(ReducerSort<K,V>,this);
+    }  
+    
     sendRankMapping();
     thread t1=thread(threadFunc1<K,V>,this);
     
@@ -955,6 +983,8 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<string>, int
         }
     }  
     t1.join();
+    if (rank<numReducers)
+        t3.join();
     return 1;
 }
 
@@ -964,7 +994,16 @@ template <class K,class V>
 int MapReduce<K,V>::map(void(*mapfunc)(int nprocs, int rank, int& kv))
 {  
     int kv;
+    thread t3;
+    if (rank<numReducers)
+    {
+        t3=thread(ReducerSort<K,V>,this);
+    }    
+    
     mapfunc(nprocs, rank, kv);
+    
+    if (rank<numReducers)
+        t3.join();
     return 1;
 }
 
@@ -976,6 +1015,11 @@ int MapReduce<K,V>::map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primar
     queue<char> buffer;
     int completed=0,flag=1;
     int kv;
+    thread t3;
+    if (rank<numReducers)
+    {
+        t3=thread(ReducerSort<K,V>,this);
+    }
     if (rank==0)
     {
         thread t1=thread(genfunc,buffer,completed);
@@ -1047,6 +1091,10 @@ int MapReduce<K,V>::map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primar
        t1.join();
     }
     
+    if (rank<numReducers)
+    {
+        t3.join();
+    }
     return 1;
 }
 
