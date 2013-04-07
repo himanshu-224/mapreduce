@@ -11,6 +11,7 @@
 #include <time.h>
 #include <string>
 #include <algorithm>
+#include <functional>
 
 #include "logging.h"
 
@@ -59,9 +60,14 @@ public:
 	
 	void add(K, V);
 	void printkv();
+	void printkv(deque<KValue> tempkv);
 	void sortkv(int);
-	void sortkv();
+	int sortkv();
 	static bool compkv(const KValue&, const KValue&);
+	void partitionkv(int, int, int(*hashfunc)(K, int));
+	void partitionkv(int, int);
+	int defaulthash(K, int);
+	void copykv(KValue *, KValue);
 };
 
 template <class K,class V>
@@ -342,6 +348,13 @@ void KeyValue<K,V>::printkv()
 	}
 }
 
+template <class K,class V>
+void KeyValue<K,V>::printkv(deque<KValue> tempkv)
+{
+	for(int index=0;index < tempkv.size(); ++index){
+		cout<<index+1<<"\tKey: "<<tempkv.at(index).key<<"\tValue: "<<tempkv.at(index).value<<endl;
+	}
+}
 //sort the key values according to key and value
 template <class K, class V>
 void KeyValue<K,V>::sortkv(int numkey)
@@ -350,10 +363,11 @@ void KeyValue<K,V>::sortkv(int numkey)
 }
 
 template <class K,class V>
-void KeyValue<K,V>::sortkv()
+int KeyValue<K,V>::sortkv()
 {
 	int numkey = nkv;
 	sort(kv.begin(),kv.begin()+numkey,compkv);
+	return numkey;
 }
 
 template <>
@@ -589,5 +603,68 @@ inline bool KeyValue<string,string>::compkv(const KValue& k1, const KValue& k2)
 		return false;
 	else
 		return lexicographical_compare(k1.value.begin(),k1.value.end(),k2.value.begin(),k2.value.end());
+}
+
+template <class	K, class V>
+void KeyValue<K,V>::copykv(KValue *k1, KValue k2)
+{
+	k1->key = k2.key;
+	k1->value = k2.value;
+	k1->ksize = k2.ksize;
+	k1->vsize = k2.vsize;
+	
+}
+
+// PArtition function starts here
+template <class K, class V>
+void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int nump2))
+{
+	KValue *kvalue=new KValue;
+	vector<deque<KValue>> tempkv;
+	vector<int> tempnkv(nump,0);
+	int i,hvalue;
+	tempkv.resize(nump);
+	for(i=0; i<numkey; i++)
+	{
+		copykv(kvalue, kv.front());
+		kv.pop_front();
+		nkv--;
+		hvalue = hashfunc(kvalue->key, nump);
+		tempkv[hvalue].push_back(*kvalue);
+		tempnkv[hvalue]++;
+	}
+}
+
+template <class K, class V>
+void KeyValue<K,V>::partitionkv(int nump, int numkey)
+{
+	KValue *kvalue= new KValue;
+	vector<deque<KValue>> tempkv;
+	vector<int> tempnkv(nump,0);
+	int i,hvalue;
+	tempkv.resize(nump);
+	for(i=0; i<numkey; i++)
+	{
+		copykv(kvalue,kv.front());
+		kv.pop_front();
+		nkv--;
+		hvalue = defaulthash(kvalue->key, nump);
+		tempkv[hvalue].push_back(*kvalue);
+		tempnkv[hvalue]++;
+	}
+	for(i=0;i<nump;i++)
+	{
+		cout<<"Proc "<<i<<endl;
+		printkv(tempkv[i]);
+	}
+}
+
+template <class K, class V>
+int KeyValue<K,V>::defaulthash(K key, int nump)
+{
+	hash<K> hash_fn;
+	size_t v = hash_fn(key)%nump + 1;
+	//v = rand()%nump + 1;
+	return (int)v;
 }
 #endif
