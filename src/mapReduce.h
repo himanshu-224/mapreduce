@@ -48,6 +48,7 @@ private:
     string homedir;
 	string mntDir;
     string logDir;
+    string kvDir;
     string myip;
     string rootip;
 	DataType dataType;
@@ -188,6 +189,7 @@ void MapReduce<K,V>::readDefaults(string configFile)
     chunkMapFile= homedir+paths.child_value("ChunkMapFile");
     mntDir= homedir+paths.child_value("MountDirectory");
     logDir=homedir+paths.child_value("LogDirectory");
+    kvDir=homedir+paths.child_value("KeyValueDirectory");
     
     pugi::xml_node params = conf.child("Parameters");
     chunkSize = atoi(params.child_value("ChunkSize"));  
@@ -280,7 +282,7 @@ void ReducerSort(MapReduce<K,V> *mr)
 template <class K,class V>
 void MapReduce<K,V>::reduceReceive()
 {
-    
+    kv->receivekv(this->nprocs);
 }
 
 template <class K,class V>
@@ -335,7 +337,7 @@ MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
     logobj=Logging(logDir,rank,debug);
     
     parseArguments(argc,argv);
-    kv=new KeyValue<K,V>(comm,logobj);
+    kv=new KeyValue<K,V>(comm,logobj,kvDir);
     
     if (rank==0)  /*Mount all directories except its own in READONLY mode*/
     {
@@ -928,7 +930,7 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
             chunksCompleted++;
             /*Insert Map Code Here*/
             mapfunc(chunk,this);
-            //finalisemap(hashfunc);
+            finalisemap(hashfunc);
             /*Insert map Code here*/
         }
         else
@@ -937,7 +939,11 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
         }
     }  
     t1.join();
-    
+    // Send message that all map task have finished
+    for(int i =0; i< numReducers; i++)
+    {
+	MPI_Send(NULL,0,MPI_INT,i,END_MAP,comm);
+    }
    if (rank<numReducers){
        t2.join();
        t3.join();
@@ -999,6 +1005,10 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<string>,  Ma
         }
     }  
     t1.join();
+    for(int i =0; i< numReducers; i++)
+    {
+	MPI_Send(NULL,0,MPI_INT,i,END_MAP,comm);
+    }
     if (rank<numReducers)
     {
         t2.join();
@@ -1024,7 +1034,10 @@ int MapReduce<K,V>::map(void(*mapfunc)(int nprocs, int rank,  MapReduce<K,V> *),
     
     mapfunc(nprocs, rank, this);
     finalisemap(hashfunc);
-    
+    for(int i =0; i< numReducers; i++)
+    {
+	MPI_Send(NULL,0,MPI_INT,i,END_MAP,comm);
+    }
     if (rank<numReducers){
         t2.join();
         t3.join();
@@ -1120,7 +1133,11 @@ int MapReduce<K,V>::map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primar
       }
        t1.join();
     }
-    
+    //
+    for(int i =0; i< numReducers; i++)
+    {
+	MPI_Send(NULL,0,MPI_INT,i,END_MAP,comm);
+    }
     if (rank<numReducers)
     {
         t2.join();

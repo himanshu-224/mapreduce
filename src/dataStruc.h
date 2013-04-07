@@ -5,6 +5,13 @@
 
 #include<iostream>
 #include<vector>
+
+#define NUM_KEY 2
+#define SIZE_NXTMSG 3
+#define KEYVALUE 4
+#define END_MAP_TASK 5
+#define END_MAP 6
+
 using namespace std;
 enum DataType{binary,text};
 

@@ -32,6 +32,15 @@ void Logging::error(string err)
     exit(-1);
 }
 
+void Logging::warning(string err)
+{
+    if (debug==1)
+    {
+        cout<<"Rank "<<rank<<" : "<<err<<endl;
+    }
+    localLog(err);
+}
+
 void Logging::localLog(string msg)
 {
     ofstream logfile;

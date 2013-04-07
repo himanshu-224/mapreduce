@@ -18,6 +18,12 @@
 
 #define INT_MAX 0x7FFFFFFF
 #define STR_MAX 0x7FFFF
+#define NUM_KEY 2
+#define SIZE_NXTMSG 3
+#define KEYVALUE 4
+#define END_MAP_TASK 5
+#define END_MAP 6
+#define NUM_SFILE 10
 
 using namespace std;
 
@@ -32,6 +38,7 @@ private:
 	Logging logobj;
 	int me;
 	
+	string kvDir;
 	//structure to store key values
 	struct KValue {
 		int ksize;
@@ -49,15 +56,18 @@ private:
 
 	// file info
 
-	char *filename;                   // filename to store KV if needed
+	/*char *filename;                   // filename to store KV if needed
 	FILE *fp;                         // file ptr
 	int fileflag;                     // 1 if file exists, 0 if not
+	*/
+	deque<string> filename;
+	//deque<FILE *> fp;
 	
 	void setType();
 	
 public:
 	KeyValue();
-	KeyValue(MPI_Comm, Logging &);
+	KeyValue(MPI_Comm, Logging &, string);
 	~KeyValue();
 	
 	void add(K, V);
@@ -72,12 +82,31 @@ public:
 	void copykv(KValue *, KValue);
 	string encodekv(KValue);
 	void decodekv(KValue *, string);
+	
+	void receivekv(int);
+	void sortfiles();
+	string getkvDir()
+	{
+		return kvDir;
+	}
 };
 
 //Implementation part
 
 string itos(int num);
 vector<string> split(string s, char delim);
+
+template <class K, class V>
+string getfilename(KeyValue<K,V> *,int);
+
+template <class K, class V>
+string getfilename(KeyValue<K,V> *obj, int rank)
+{
+	string filename;
+	int curtime = time(NULL);
+	filename = obj->getkvDir() + "kv_" + itos(rank) + "." + itos(curtime) +".txt";
+	return filename;
+}
 
 /*template <class K,class V>
 KeyValue<K,V>::KeyValue()
@@ -105,12 +134,13 @@ KeyValue<K,V>::KeyValue()
 	fp=NULL;
 }*/
 template <class K, class V>
-KeyValue<K,V>::KeyValue(MPI_Comm communicator, Logging &log_caller)
+KeyValue<K,V>::KeyValue(MPI_Comm communicator, Logging &log_caller, string kvDir_caller)
 {
 	comm = communicator;
 	logobj = log_caller;
 	MPI_Comm_rank(comm,&me);
-	int curtime = time(NULL);
+	kvDir = kvDir_caller;
+	/*int curtime = time(NULL);
 
 	int n = 100;
 	filename = (char*)malloc(n);
@@ -124,23 +154,23 @@ KeyValue<K,V>::KeyValue(MPI_Comm communicator, Logging &log_caller)
 		
 		sprintf(str,"ERROR on proc %d (%s): Failed to allocate %d	 bytes for array filename\n",me,name,n);
 		logobj.error(str);
-	}
+	}*/
 	nkv = 0;
 	setType();
 	
-	sprintf(filename,"/export/mapReduce/keyValue/kv.%d",curtime);
-	fileflag = 0;
-	fp=NULL;
+	//sprintf(filename,"/export/mapReduce/keyValue/kv.%d",curtime);
+	//fileflag = 0;
+	//fp=NULL;
 }
 
 template <class K, class V>
 KeyValue<K,V>::~KeyValue()
 {
-	if(fileflag)
+	/*if(fileflag)
 	{
 		remove(filename);
 	}
-	delete [] filename;
+	delete [] filename;*/
 }
 
 // set the type of key and value, which will be sent to reducer later
@@ -635,25 +665,37 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 	vector<int> tempnkv(nump,0);
 	int i,hvalue,j;
 	string str,str2;
+	int len;
 	tempkv.resize(nump);
-	for(i=0; i<numkey; i++)
+	if (nump ==1){
+		for(i=0;i<numkey;i++){
+			tempkv[0].push_back(kv.front());
+			kv.pop_front();
+			nkv--;
+		}
+		tempnkv[0] = numkey;
+	}
+	else
 	{
-		copykv(kvalue,kv.front());
-		kv.pop_front();
-		nkv--;
-		hvalue = hashfunc(kvalue->key, nump);
-		tempkv[hvalue].push_back(*kvalue);
-		tempnkv[hvalue]++;
+		for(i=0; i<numkey; i++)
+		{
+			copykv(kvalue,kv.front());
+			kv.pop_front();
+			nkv--;
+			hvalue = hashfunc(kvalue->key, nump);
+			tempkv[hvalue].push_back(*kvalue);
+			tempnkv[hvalue]++;
+		}
 	}
 	logobj.localLog("KeyValue pair partiotioned");
-	for(i=0;i<nump;i++)
+	/*for(i=0;i<nump;i++)
 	{
 		cout<<"Proc "<<i<<endl;
 		printkv(tempkv[i]);
-	}
-	/*for(i=0;i<nump;i++)
+	}*/
+	for(i=0;i<nump;i++)
 	{
-		MPI_Send(&tempnkv[i],1,MPI_INT,i,2,comm);
+		MPI_Send(&tempnkv[i],1,MPI_INT,i,NUM_KEY,comm);
 		str.clear();
 		for(j=0;j<tempnkv[i];j++)
 		{
@@ -662,47 +704,63 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 			if (str.length()+str2.length() > STR_MAX)
 			{
 				char *buffer = strdup(str.c_str());
-				MPI_Send(buffer,str.length(),MPI_CHAR,i,3,comm);
+				len = str.length();
+				MPI_Send(&len,1,MPI_INT,i,SIZE_NXTMSG,comm);
+				MPI_Send(buffer,str.length(),MPI_CHAR,i,KEYVALUE,comm);
 				str.clear();
 			}
 			str+=str2;
 		}
 		if(!str.empty())
 		{
-			MPI_Send(strdup(str.c_str()),str.length(),MPI_CHAR,i,3,comm);
+			len = str.length();
+			MPI_Send(&len,1,MPI_INT,i,SIZE_NXTMSG,comm);
+			MPI_Send(strdup(str.c_str()),str.length(),MPI_CHAR,i,KEYVALUE,comm);
 		}
-	}*/
+		len = 0;
+		MPI_Send(&len,1,MPI_INT,i,END_MAP_TASK,comm);
+	}
 }
 
 template <class K, class V>
 void KeyValue<K,V>::partitionkv(int nump, int numkey)
 {
 	logobj.localLog("Entered partitionkv");
-    usleep(1000000);
+    //usleep(1000000);
 	KValue *kvalue= new KValue;
 	vector<deque<KValue>> tempkv;
 	vector<int> tempnkv(nump,0);
-	int i,hvalue,j;
+	int i,hvalue,j,len;
 	string str,str2;
 	tempkv.resize(nump);
-	for(i=0; i<numkey; i++)
-	{
-		copykv(kvalue,kv.front());
-		kv.pop_front();
-		nkv--;
-		hvalue = defaulthash(kvalue->key, nump);
-		tempkv[hvalue].push_back(*kvalue);
-		tempnkv[hvalue]++;
+	if (nump ==1){
+		for(i=0;i<numkey;i++){
+			tempkv[0].push_back(kv.front());
+			kv.pop_front();
+			nkv--;
+		}
+		tempnkv[0] = numkey;
+	}
+	else{
+		for(i=0; i<numkey; i++)
+		{
+			copykv(kvalue,kv.front());
+			kv.pop_front();
+			nkv--;
+			hvalue = defaulthash(kvalue->key, nump);
+			tempkv[hvalue].push_back(*kvalue);
+			tempnkv[hvalue]++;
+		}
 	}
 	logobj.localLog("KeyValue pair partiotioned");
-	for(i=0;i<nump;i++)
+	/*for(i=0;i<nump;i++)
 	{
 		cout<<"Proc "<<i<<endl;
 		printkv(tempkv[i]);
-	}
-	/*for(i=0;i<nump;i++)
+	}*/
+	for(i=0;i<nump;i++)
 	{
-		MPI_Send(&tempnkv[i],1,MPI_INT,i,2,comm);
+		MPI_Send(&tempnkv[i],1,MPI_INT,i,NUM_KEY,comm);
 		str.clear();
 		for(j=0;j<tempnkv[i];j++)
 		{
@@ -711,16 +769,22 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey)
 			if (str.length()+str2.length() > STR_MAX)
 			{
 				char *buffer = strdup(str.c_str());
-				MPI_Send(buffer,str.length(),MPI_CHAR,i,3,comm);
+				len = str.length();
+				MPI_Send(&len,1,MPI_INT,i,SIZE_NXTMSG,comm);
+				MPI_Send(buffer,str.length(),MPI_CHAR,i,KEYVALUE,comm);
 				str.clear();
 			}
 			str+=str2;
 		}
 		if(!str.empty())
 		{
-			MPI_Send(strdup(str.c_str()),str.length(),MPI_CHAR,i,3,comm);
+			len = str.length();
+			MPI_Send(&len,1,MPI_INT,i,SIZE_NXTMSG,comm);
+			MPI_Send(strdup(str.c_str()),str.length(),MPI_CHAR,i,KEYVALUE,comm);
 		}
-	}*/
+		len = 0;
+		MPI_Send(&len,1,MPI_INT,i,END_MAP_TASK,comm);
+	}
 }
 
 template <class K, class V>
@@ -748,5 +812,92 @@ inline void KeyValue<int,int>::decodekv(KValue *k1, string str)
 	k1->ksize = atoi(vstr[1].c_str());
 	k1->value = atoi(vstr[2].c_str());
 	k1->vsize = atoi(vstr[3].substr(0,vstr[3].length()-1).c_str());
+}
+
+//Receive key value pair from other process
+template <class K, class V>
+void KeyValue<K,V>::receivekv(int nump)
+{
+	vector<string> procfile;
+	procfile.resize(nump);
+	//vector<ofstream> procfp;
+	ofstream procfp;
+	vector<int> proclen(nump,-1);
+	//procfp.resize(nump);
+	MPI_Status status;
+	int source;
+	int nkv;
+	char *buffer;
+	if(nump < 1){
+		string err = "Error: Total number of map process is less than 1. Exiting!!";
+		logobj.error(err);
+	}
+	while(1)
+	{
+		MPI_Probe(MPI_ANY_SOURCE,MPI_ANY_TAG,comm,&status);
+		source = status.MPI_SOURCE;
+		switch(status.MPI_TAG)
+		{
+			case NUM_KEY:
+				if(!procfile[source].empty()){
+					string err = "Message for end of previous maptask of process " + itos(source)+" is not completed.";
+					err+="Exiting!!";
+					logobj.error(err);
+				}
+				procfile[source] = getfilename(this, source);
+				//procfp[source].open(procfile[source].c_str(), ios::out | ios::app | ios::binary);
+				MPI_Recv(&nkv,1,MPI_INT,source,NUM_KEY,comm,&status);
+				break;
+			
+			case SIZE_NXTMSG:
+				MPI_Recv(&proclen[source],1,MPI_INT,source,SIZE_NXTMSG,comm,&status);
+				break;
+				
+			case KEYVALUE:
+				if(proclen[source] == -1){
+					string err;
+					err = "Receiving data from rank:"+itos(source)+" Could not receive size of data. Exiting!!";
+					logobj.error(err);
+				}
+				buffer = (char*)malloc(proclen[source]);
+				MPI_Recv(buffer,proclen[source],MPI_CHAR,source,KEYVALUE,comm,&status);
+				procfp.open(procfile[source].c_str(), ios::out | ios::app | ios::binary);
+				procfp.write(buffer,proclen[source]);
+				procfp.close();
+				delete [] buffer;
+				proclen[source] = -1;
+				break;
+				
+			case END_MAP_TASK:
+				if(proclen[source] != -1){
+					string err;
+					err = "Rank:"+itos(source)+" Could not receive some key value pair. Exiting!!";
+					logobj.error(err);
+				}
+				MPI_Recv(NULL,0,MPI_INT,source,END_MAP_TASK,comm,&status);
+				//procfp[source].close();
+				filename.push_back(procfile[source]);
+				procfile[source].clear();
+				break;
+				
+			case END_MAP:
+				if(!procfile[source].empty()){
+					string err = "Rank:"+itos(source)+" Some map task still not completed.";
+					err+=" Received end of mapping part message. Exiting!!";
+					logobj.error(err);
+				}
+				MPI_Recv(NULL,0,MPI_INT,source,END_MAP,comm,&status);
+				nump--;
+				if(nump==0)
+					return;
+				break;
+				
+			default:
+				string err;
+				err = "Rank:" + itos(source)+ " Message of unknowntag received. Ignoring!!";
+				usleep(10000);
+				break;
+		}
+	}
 }
 #endif
