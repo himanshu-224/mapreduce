@@ -1224,7 +1224,7 @@ template<class K, class V>
 void MapReduce<K,V>::findFileSize()
 {
     ifstream fin;
-    fin.open(kv.kvfile.c_str(), ios::in | ios::binary);
+    fin.open(kv->kvfile.c_str(), ios::in | ios::binary);
     fin.seekg(0,fin.end);
     kvfilesize= fin.tellg();    
     fin.close();
@@ -1254,7 +1254,10 @@ KMultiValue<K,V> kvTokmv(vector<KValue<K,V> > KVList)
     int length=KVList.size();
     
     if (length==0)
+    {
+        KMVList.length=0;
         return KMVList;
+    }
     
     KMVList.key= KVList[0].key;
     KMVList.ksize = KVList[0].ksize;    
@@ -1267,7 +1270,7 @@ KMultiValue<K,V> kvTokmv(vector<KValue<K,V> > KVList)
         
         KMVList.mv.push_back(v);        
     }    
-    
+    KMVList.length=KMVList.mv.size();
     return KMVList;
 }
 
@@ -1302,7 +1305,7 @@ KMultiValue<K,V> MapReduce<K,V>::getKey()
         }
         string kvstring = kvdata.substr(pos+1,length);
         KValue<K,V> k1;
-        kv.decodekv(&k1,kvstring);
+        kv->decodekv(&k1,kvstring);
         
         if (KVList.size()==0)
         {
@@ -1311,7 +1314,7 @@ KMultiValue<K,V> MapReduce<K,V>::getKey()
         }
         else 
         {   
-            if (!kv.compkv(KVList.back(), k1) && !kv.compkv(k1,KVList.back()))
+            if (!kv->compkv(KVList.back(), k1) && !kv->compkv(k1,KVList.back()))
             {
                 KVList.push_back(k1);
                 kvdata=kvdata.substr(pos+length+1);
@@ -1329,7 +1332,7 @@ template<class K,class V>
 int MapReduce<K,V>::replenish(string &data)
 {
     ifstream fin;
-    fin.open(kv.kvfile.c_str(), ios::in | ios::binary);
+    fin.open(kv->kvfile.c_str(), ios::in | ios::binary);
     fin.seekg (curKVposition, fin.beg);
     int blocksize = 1024*1024;
 

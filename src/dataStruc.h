@@ -94,6 +94,7 @@ struct KMultiValue
 {
     int ksize;
     K key;
+    int length;
     vector<multiValue<V> > mv;
 };    
 

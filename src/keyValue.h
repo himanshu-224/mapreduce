@@ -15,6 +15,7 @@
 #include <functional>
 #include <iterator>
 
+#include "dataStruc.h"
 #include "logging.h"
 
 #define INT_MAX 0x7FFFFFFF
@@ -41,14 +42,9 @@ private:
 	
 	string kvDir;
 	//structure to store key values
-	struct KValue {
-		int ksize;
-		int vsize;
-		K key;
-		V value;
-	};
+
 	
-	deque<KValue> kv;
+	deque<KValue<K,V> > kv;
 	int nkv;
 	// Type codes char - 0, int - 1, float - 2, double - 3, string - 4
 	int keytype;
@@ -62,29 +58,30 @@ private:
 	int fileflag;                     // 1 if file exists, 0 if not
 	*/
 	deque<string> filename;
-	string kvfile;
 	//deque<FILE *> fp;
 	int recvcomp;
 	
 	void setType();
 	
 public:
+    string kvfile;
+    
 	KeyValue();
 	KeyValue(MPI_Comm, Logging &, string);
 	~KeyValue();
 	
 	void add(K, V);
 	void printkv();
-	void printkv(deque<KValue> tempkv);
+	void printkv(deque<KValue<K,V> > tempkv);
 	void sortkv(int);
 	int sortkv();
-	static bool compkv(const KValue&, const KValue&);
+	static bool compkv(const KValue<K,V>&, const KValue<K,V>&);
 	void partitionkv(int, int, int(*hashfunc)(K, int));
 	void partitionkv(int, int);
 	int defaulthash(K, int);
-	void copykv(KValue *, KValue);
-	string encodekv(KValue);
-	void decodekv(KValue *, string);
+	void copykv(KValue<K,V>*, KValue<K,V>);
+	string encodekv(KValue<K,V>);
+	void decodekv(KValue<K,V> *, string);
 	
 	void receivekv(int);
 	void sortfiles();
@@ -382,7 +379,7 @@ inline void KeyValue<string,string>::setType()
 template <class K, class V>
 void KeyValue<K,V>::add(K key, V value)
 {
-	KValue newkv;
+	KValue<K,V>  newkv;
 	newkv.key = key;
 	newkv.value = value;
 	/*if(keytype==4){
@@ -416,7 +413,7 @@ void KeyValue<K,V>::printkv()
 }
 
 template <class K,class V>
-void KeyValue<K,V>::printkv(deque<KValue> tempkv)
+void KeyValue<K,V>::printkv(deque<KValue<K,V> > tempkv)
 {
 	for(int index=0;index < tempkv.size(); ++index){
 		cout<<index+1<<"\tKey: "<<tempkv.at(index).key<<"\tValue: "<<tempkv.at(index).value<<endl;
@@ -439,7 +436,7 @@ int KeyValue<K,V>::sortkv()
 }
 
 template <>
-inline bool KeyValue<char,char>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<char,char>::compkv(const KValue<char,char> & k1, const KValue<char,char> & k2)
 {
 	if(k1.key==k2.key)
 		return (k1.value<k2.value);
@@ -448,7 +445,7 @@ inline bool KeyValue<char,char>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<char,int>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<char,int>::compkv(const KValue<char,int> & k1, const KValue<char,int> & k2)
 {
 	if(k1.key==k2.key)
 		return (k1.value<k2.value);
@@ -457,7 +454,7 @@ inline bool KeyValue<char,int>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<char,float>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<char,float>::compkv(const KValue<char,float> & k1, const KValue<char,float> & k2)
 {
 	if(k1.key==k2.key)
 		return (k1.value<k2.value);
@@ -466,7 +463,7 @@ inline bool KeyValue<char,float>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<char,double>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<char,double>::compkv(const KValue<char,double> &k1, const KValue<char,double> &k2)
 {
 	if(k1.key==k2.key)
 		return (k1.value<k2.value);
@@ -475,7 +472,7 @@ inline bool KeyValue<char,double>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<char,string>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<char,string>::compkv(const KValue<char,string> & k1, const KValue<char,string> & k2)
 {
 	if(k1.key==k2.key)
 		return lexicographical_compare(k1.value.begin(),k1.value.end(),k2.value.begin(),k2.value.end());
@@ -484,7 +481,7 @@ inline bool KeyValue<char,string>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<int,char>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<int,char>::compkv(const KValue<int,char> & k1, const KValue<int,char> & k2)
 {
 	if(k1.key==k2.key)
 		return (k1.value<k2.value);
@@ -493,7 +490,7 @@ inline bool KeyValue<int,char>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<int,int>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<int,int>::compkv(const KValue<int,int> & k1, const KValue<int,int> & k2)
 {
 	if(k1.key==k2.key)
 		return (k1.value<k2.value);
@@ -502,7 +499,7 @@ inline bool KeyValue<int,int>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<int,float>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<int,float>::compkv(const KValue<int,float> & k1, const KValue<int,float> & k2)
 {
 	if(k1.key==k2.key)
 		return (k1.value<k2.value);
@@ -511,7 +508,7 @@ inline bool KeyValue<int,float>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<int,double>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<int,double>::compkv(const KValue<int,double> & k1, const KValue<int,double> & k2)
 {
 	if(k1.key==k2.key)
 		return (k1.value<k2.value);
@@ -520,7 +517,7 @@ inline bool KeyValue<int,double>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<int,string>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<int,string>::compkv(const KValue<int,string> & k1, const KValue<int,string> & k2)
 {
 	if(k1.key==k2.key)
 		return lexicographical_compare(k1.value.begin(),k1.value.end(),k2.value.begin(),k2.value.end());
@@ -529,7 +526,7 @@ inline bool KeyValue<int,string>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<float,char>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<float,char>::compkv(const KValue<float,char> & k1, const KValue<float,char> & k2)
 {
 	if(k1.key==k2.key)
 		return (k1.value<k2.value);
@@ -538,7 +535,7 @@ inline bool KeyValue<float,char>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<float,int>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<float,int>::compkv(const KValue<float,int> & k1, const KValue<float,int> & k2)
 {
 	if(k1.key==k2.key)
 		return (k1.value<k2.value);
@@ -547,7 +544,7 @@ inline bool KeyValue<float,int>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<float,float>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<float,float>::compkv(const KValue<float,float> & k1, const KValue<float,float> & k2)
 {
 	if(k1.key==k2.key)
 		return (k1.value<k2.value);
@@ -556,7 +553,7 @@ inline bool KeyValue<float,float>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<float,double>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<float,double>::compkv(const KValue<float,double> & k1, const KValue<float,double> & k2)
 {
 	if(k1.key==k2.key)
 		return (k1.value<k2.value);
@@ -565,7 +562,7 @@ inline bool KeyValue<float,double>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<float,string>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<float,string>::compkv(const KValue<float,string> & k1, const KValue<float,string> & k2)
 {
 	if(k1.key==k2.key)
 		return lexicographical_compare(k1.value.begin(),k1.value.end(),k2.value.begin(),k2.value.end());
@@ -574,7 +571,7 @@ inline bool KeyValue<float,string>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<double,char>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<double,char>::compkv(const KValue<double,char> & k1, const KValue<double,char> & k2)
 {
 	if(k1.key==k2.key)
 		return (k1.value<k2.value);
@@ -583,7 +580,7 @@ inline bool KeyValue<double,char>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<double,int>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<double,int>::compkv(const KValue<double,int> & k1, const KValue<double,int> & k2)
 {
 	if(k1.key==k2.key)
 		return (k1.value<k2.value);
@@ -592,7 +589,7 @@ inline bool KeyValue<double,int>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<double,float>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<double,float>::compkv(const KValue<double,float> & k1, const KValue<double,float> & k2)
 {
 	if(k1.key==k2.key)
 		return (k1.value<k2.value);
@@ -601,7 +598,7 @@ inline bool KeyValue<double,float>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<double,double>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<double,double>::compkv(const KValue<double,double> & k1, const KValue<double,double> & k2)
 {
 	if(k1.key==k2.key)
 		return (k1.value<k2.value);
@@ -610,7 +607,7 @@ inline bool KeyValue<double,double>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<double,string>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<double,string>::compkv(const KValue<double,string> & k1, const KValue<double,string> & k2)
 {
 	if(k1.key==k2.key)
 		return lexicographical_compare(k1.value.begin(),k1.value.end(),k2.value.begin(),k2.value.end());
@@ -619,7 +616,7 @@ inline bool KeyValue<double,string>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<string,char>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<string,char>::compkv(const KValue<string,char> & k1, const KValue<string,char> & k2)
 {
 	if (lexicographical_compare(k1.key.begin(),k1.key.end(),k2.key.begin(),k2.key.end()))
 		return true;
@@ -630,7 +627,7 @@ inline bool KeyValue<string,char>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<string,int>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<string,int>::compkv(const KValue<string,int> & k1, const KValue<string,int> & k2)
 {
 	if (lexicographical_compare(k1.key.begin(),k1.key.end(),k2.key.begin(),k2.key.end()))
 		return true;
@@ -641,7 +638,7 @@ inline bool KeyValue<string,int>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<string,float>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<string,float>::compkv(const KValue<string,float> & k1, const KValue<string,float> & k2)
 {
 	if (lexicographical_compare(k1.key.begin(),k1.key.end(),k2.key.begin(),k2.key.end()))
 		return true;
@@ -652,7 +649,7 @@ inline bool KeyValue<string,float>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<string,double>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<string,double>::compkv(const KValue<string,double> & k1, const KValue<string,double> & k2)
 {
 	if (lexicographical_compare(k1.key.begin(),k1.key.end(),k2.key.begin(),k2.key.end()))
 		return true;
@@ -663,7 +660,7 @@ inline bool KeyValue<string,double>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <>
-inline bool KeyValue<string,string>::compkv(const KValue& k1, const KValue& k2)
+inline bool KeyValue<string,string>::compkv(const KValue<string,string> & k1, const KValue<string,string> & k2)
 {
 	if (lexicographical_compare(k1.key.begin(),k1.key.end(),k2.key.begin(),k2.key.end()))
 		return true;
@@ -674,7 +671,7 @@ inline bool KeyValue<string,string>::compkv(const KValue& k1, const KValue& k2)
 }
 
 template <class	K, class V>
-void KeyValue<K,V>::copykv(KValue *k1, KValue k2)
+void KeyValue<K,V>::copykv(KValue<K,V>  *k1, KValue<K,V>  k2)
 {
 	k1->key = k2.key;
 	k1->value = k2.value;
@@ -688,8 +685,8 @@ template <class K, class V>
 void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int nump2))
 {
 	logobj.localLog("Entered partitionkv");
-	KValue *kvalue= new KValue;
-	vector<deque<KValue>> tempkv;
+	KValue<K,V>  *kvalue= new KValue<K,V> ;
+	vector<deque<KValue<K,V> >> tempkv;
 	vector<int> tempnkv(nump,0);
 	int i,hvalue,j;
 	string str,str2;
@@ -755,8 +752,8 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey)
 {
 	logobj.localLog("Entered partitionkv");
     //usleep(1000000);
-	KValue *kvalue= new KValue;
-	vector<deque<KValue>> tempkv;
+	KValue<K,V>  *kvalue= new KValue<K,V> ;
+	vector<deque<KValue<K,V> >> tempkv;
 	vector<int> tempnkv(nump,0);
 	int i,hvalue,j,len;
 	string str,str2;
@@ -825,7 +822,7 @@ int KeyValue<K,V>::defaulthash(K key, int nump)
 }
 
 template <>
-inline string KeyValue<int,int>::encodekv(KValue k)
+inline string KeyValue<int,int>::encodekv(KValue<int,int>  k)
 {
 	string str = itos(k.key) + "#" + itos(k.ksize) + "#" + itos(k.value) + "#" + itos(k.vsize) + "\n";
 	str = itos(str.length())+":"+str;
@@ -833,7 +830,7 @@ inline string KeyValue<int,int>::encodekv(KValue k)
 }
 
 template <>
-inline void KeyValue<int,int>::decodekv(KValue *k1, string str)
+inline void KeyValue<int,int>::decodekv(KValue<int,int>  *k1, string str)
 {
 	vector<string> vstr = split(str,'#');
 	k1->key = atoi(vstr[0].c_str());
@@ -941,12 +938,12 @@ void KeyValue<K,V>::sortfiles()
 	int kvpos[NUM_SFILE];
 	string newfile;
 	ofstream newfilep;
-	vector<KValue> tempkv;
+	vector<KValue<K,V> > tempkv;
 	vector<int> index(NUM_SFILE,-1);
 	tempkv.resize(NUM_SFILE);
 	int i,minpos,numfiles;
 	string buffer;
-	KValue temp;
+	KValue<K,V>  temp;
 	while(1){
 		if((filename.size() < NUM_SFILE) || (recvcomp == 0)){
 			usleep(100000);
