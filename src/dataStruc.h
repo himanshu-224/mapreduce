@@ -66,4 +66,28 @@ struct IPCount
     int size;
 };
 
+template<class K,class V>
+struct KValue 
+{
+    int ksize;
+    int vsize;
+    K key;
+    V value;
+};
+    
+template<class V>    
+struct multiValue
+{
+    int value;
+    int vsize;
+};
+
+template<class K,class V>
+struct KMultiValue 
+{
+    int ksize;
+    K key;
+    vector<multiValue<V> > mv;
+};    
+
 #endif

@@ -60,11 +60,17 @@ private:
 	vector<ChunkInfo> chunks;
     
     queue<int> chunksObtained;
+    string kvdata;
     //std::thread t1;
 	
 	int nprocs, rank;
 	MPI_Comm comm;
 	int debug;
+    int curKVposition;
+    int kvfilesize;
+    bool KeyValuesFinished;
+    int iskvDataLeft;
+    string KeyValueFile;
     int chunksCompleted;
 	int mpi_initialized_mr;
 
@@ -75,6 +81,8 @@ int map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&, MapReduce<K,V> 
 int map(int argc,char **argv, void(*mapfunc)(vector<string>,  MapReduce<K,V> *),int(*hashfunc)(K key, int nump));
 int map(void(*mapfunc)(int nprocs, int rank,  MapReduce<K,V> *),int(*hashfunc)(K key, int nump));
 int map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primaryKV&,  MapReduce<K,V> *),int(*hashfunc)(K key, int nump));
+
+int reduce(void(*reducefunc)(MapReduce<K,V>*));
 
 MapReduce(int, char**,int);
 MapReduce(MPI_Comm communicator,int, char**);
@@ -99,6 +107,11 @@ vector<primaryKV> createChunk(int front);
 void sendData(char* chunk,int size, int curRank);
 
 void addkv(K, V);
+KMultiValue<K,V> getKey();
+int replenish(string&);
+void findFileSize();
+bool empty();
+void reRead();
 void finalisemap(int(*hashfunc)(K key, int nump));
 
 };
@@ -298,6 +311,10 @@ MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
     mpi_initialized_mr=1;
     chunksCompleted=0;
     numReducers = numRed;
+    curKVposition=0;
+    kvdata="";
+    iskvDataLeft=1;
+    KeyValuesFinished=false;
     int flag;
     MPI_Initialized(&flag); 
     
@@ -1184,6 +1201,140 @@ void MapReduce<K,V>::finalisemap(int(*hashfunc)(K key, int nump) = defaulthash<K
 	logobj.localLog("sorted keyValue pair");
 	kv->partitionkv(numReducers,t,hashfunc);
 	logobj.localLog("exit finalisemap");
+}
+
+
+template<class K, class V>
+void MapReduce<K,V>::findFileSize()
+{
+    ifstream fin;
+    fin.open(KeyValueFile.c_str(), ios::in | ios::binary);
+    fin.seekg(0,fin.end);
+    kvfilesize= fin.tellg();    
+    fin.close();
+}
+
+template<class K,class V>
+bool MapReduce<K,V>::empty()
+{   
+    return KeyValuesFinished;
+}
+
+template<class K,class V>
+void MapReduce<K,V>::reRead()
+{   
+    KeyValuesFinished=false;
+    iskvDataLeft=1;
+    curKVposition=0;
+    findFileSize();
+}
+
+template <class K, class V>
+KMultiValue<K,V> MapReduce<K,V>::getKey()
+{    
+    KMultiValue<K,V> KMVList; 
+    
+    while(1)
+    {
+        int pos = kvdata.find(':');
+        if (pos==-1)
+        {
+            if (iskvDataLeft==1)
+            {
+                iskvDataLeft= replenish(kvdata);
+                continue;
+            }
+            else
+            {
+                KeyValuesFinished=true;
+                kvdata.clear();
+                break;
+            }
+        }
+        int length = atoi(kvdata.substr(0,pos).c_str());
+        if (kvdata.length()<length+pos+1)
+        {
+                iskvDataLeft= replenish(kvdata);
+                continue;
+        }
+        string kvstring = kvdata.substr(pos+1,length);
+        KValue<K,V> k1;
+        kv.decodekv(&k1,kvstring);
+        if (KMVList.size()==0)
+        {
+            KMVList.key= k1.key;
+            KMVList.ksize = k1.ksize;
+            
+            vector<multiValue<V> > mv;
+            KMVList.mv= mv;
+            
+            multiValue<V> v;
+            v.vsize=k1.vsize;
+            v.value=k1.value;
+            
+            KMVList.mv.push_back(v);
+            
+            kvdata=kvdata.substr(pos+length+1);
+        }
+        else 
+        {
+            KValue<K,V> kv1;
+            kv1.key= KMVList.key;
+            kv1.ksize = KMVList.ksize;
+            kv1.value = KMVList.mv.back().value;
+            kv1.vsize = KMVList.mv.back().vsize;
+            
+            if (!kv.compkv(kv1, k1) && !kv.compkv(k1,kv1))
+            {
+                multiValue<V> v;
+                v.vsize=k1.vsize;
+                v.value=k1.value;
+            
+                KMVList.mv.push_back(v);
+            
+                kvdata=kvdata.substr(pos+length+1);
+            }
+            else
+            {
+                return KMVList;
+            }
+        }      
+    }
+    return KMVList;
+}
+
+template<class K,class V>
+int MapReduce<K,V>::replenish(string &data)
+{
+    ifstream fin;
+    fin.open(KeyValueFile.c_str(), ios::in | ios::binary);
+    fin.seekg (curKVposition, fin.beg);
+    int blocksize = 1024*1024;
+
+    int rvalue=1;
+    if (kvfilesize<=blocksize)
+    {
+        blocksize=kvfilesize;
+        rvalue=0;
+    }
+    
+    char *buffer= new char[blocksize];
+    fin.read(buffer,blocksize);
+    data=data+string(buffer);
+    
+    curKVposition+=blocksize;
+    kvfilesize-=blocksize;
+    
+    logobj.localLog("Reading Key Value File in Reduce Phase : No. of bytes read = "+itos(fin.gcount()));
+   
+    fin.close();
+    return rvalue; 
+}
+
+template <class K,class V>
+int MapReduce<K,V>::reduce(void(*reducefunc)(MapReduce<K,V>*))
+{
+    reducefunc(this);
 }
 
 #endif
