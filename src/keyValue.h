@@ -109,7 +109,7 @@ string getfilename(KeyValue<K,V> *obj, int rank)
 {
 	string filename;
 	int curtime = time(NULL);
-	filename = obj->getkvDir() + "kv_" + itos(rank) + "." + itos(curtime) +".txt";
+	filename = obj->getkvDir() + "kv_" + itos(rank) + "." + itos(curtime);
 	return filename;
 }
 
