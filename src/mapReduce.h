@@ -288,7 +288,7 @@ void MapReduce<K,V>::reduceReceive()
 template <class K,class V>
 void MapReduce<K,V>::reduceSort()
 {
-    
+	kv->sortfiles();
 }
 
 

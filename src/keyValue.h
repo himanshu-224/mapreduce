@@ -99,7 +99,7 @@ public:
 string itos(int num);
 vector<string> split(string s, char delim);
 
-string getkvstr(ifstream filep);
+string getkvstr(ifstream& filep);
 
 template <class K, class V>
 string getfilename(KeyValue<K,V> *,int);
@@ -113,7 +113,7 @@ string getfilename(KeyValue<K,V> *obj, int rank)
 	return filename;
 }
 
-string getkvstr(ifstream filep)
+string getkvstr(ifstream& filep)
 {
 	string str;
 	char c;
@@ -936,7 +936,9 @@ template <class K, class V>
 void KeyValue<K,V>::sortfiles()
 {
 	string kvfilename[NUM_SFILE];
-	ifstream kvfilep[NUM_SFILE];
+	//ifstream kvfilep[NUM_SFILE];
+	ifstream kvfilep;
+	int kvpos[NUM_SFILE];
 	string newfile;
 	ofstream newfilep;
 	vector<KValue> tempkv;
@@ -954,15 +956,18 @@ void KeyValue<K,V>::sortfiles()
 		for(i=0;i<numfiles;i++){
 			kvfilename[i] = filename.front();
 			filename.pop_front();
-			kvfilep[i].open(kvfilename[i].c_str());
+			//kvfilep[i].open(kvfilename[i].c_str());
 		}
 		newfile = getfilename(this,me);
 		newfilep.open(newfile.c_str(), ios::out | ios::app | ios::binary);
 		for(i=0;i<numfiles;i++){
-			buffer = getkvstr(kvfilep[i]);
+			kvfilep.open(kvfilename[i].c_str());
+			buffer = getkvstr(kvfilep);
 			decodekv(&temp,buffer);
 			copykv(&tempkv[i],temp);
 			index[i] = i;
+			kvpos[i] = (int)kvfilep.tellg();
+			kvfilep.close();
 		}
 		while(1){
 			minpos = distance(tempkv.begin(),min_element(tempkv.begin(),tempkv.end(),compkv));
@@ -970,14 +975,18 @@ void KeyValue<K,V>::sortfiles()
 			buffer = encodekv(tempkv.at(minpos));
 			newfilep.write(strdup(buffer.c_str()),buffer.length());
 			buffer.clear();
-			if(kvfilep[index[minpos]].good()){
-				buffer = getkvstr(kvfilep[index[minpos]]);
+			kvfilep.open(kvfilename[index[minpos]].c_str());
+			kvfilep.seekg(kvpos[index[minpos]],ios::beg);
+			if(kvfilep.good()){
+				buffer = getkvstr(kvfilep);
 				decodekv(&temp,buffer);
 				copykv(&tempkv[minpos],temp);
+				kvpos[index[minpos]] = (int)kvfilep.tellg();
+				kvfilep.close();
 			}
 			else{
 				tempkv.erase(tempkv.begin() + minpos);
-				kvfilep[index[minpos]].close();
+				kvfilep.close();
 				remove(kvfilename[index[minpos]].c_str());
 				index.erase(index.begin() + minpos);
 				if (tempkv.size() == 0){
