@@ -28,52 +28,47 @@
 #ifndef MAP_REDUCE
 #define MAP_REDUCE
 
+#define OK_TO_SEND 17
+#define SIZE_INFORMATION 15
+#define DATA_TRANSFER 16
+#define END_OF_TRANSER 20
+
 using namespace std;
 
 template<class K,class V>
 class MapReduce
 {
 private:
-	string ipListFile;
-	string nodeInfoFile;
-	string chunkMapFile;
-    string logFolder;
+    
+    MPI_Comm comm;
     
     Logging logobj;
 	KeyValue<K,V> *kv;
     
-    string separator;
-    string fsplit;
-	string dirFile;
-    string homedir;
-	string mntDir;
-    string logDir;
-    string kvDir;
-    string myip;
-    string rootip;
+    string ipListFile, nodeInfoFile, chunkMapFile;
+    string dirFile, homedir, mntDir, logDir, logFolder;
+    string separator, fsplit, kvDir;
+    string myip,rootip;
+    string kvdata;
+    
+    int nprocs,rank, mpi_initialized_mr, debug;
+    int curKVposition, kvfilesize, iskvDataLeft;
+    int numMaps,numReducers;
+    int chunksCompleted, chunkSize;
+    int isCluster;    
+    
+    bool KeyValuesFinished,reduceCompleted;
 	DataType dataType;
-	int chunkSize;
-    int isCluster;
-	int numMaps;
-    int numReducers;
+	
 	vector<string> fileList;
 	vector<string> dirList;
 	vector<ChunkInfo> chunks;
     
+    queue<KValue<K,V> > finalQueue;
+    
     queue<int> chunksObtained;
-    string kvdata;
     //std::thread t1;
-	
-	int nprocs, rank;
-	MPI_Comm comm;
-	int debug;
-    int curKVposition;
-    int kvfilesize;
-    bool KeyValuesFinished;
-    int iskvDataLeft;
-    int chunksCompleted;
-	int mpi_initialized_mr;
-
+    
 	public:
 //data provided as blocks of string to user suppiled map function
 
@@ -106,14 +101,20 @@ vector<primaryKV> createChunk(int front);
 
 void sendData(char* chunk,int size, int curRank);
 
+void finalisemap(int(*hashfunc)(K key, int nump));
+
 void addkv(K, V);
+
 KMultiValue<K,V> getKey();
 int replenish(string&);
 void findFileSize();
 bool empty();
 void reRead();
-void finalisemap(int(*hashfunc)(K key, int nump));
 
+void raddkv(K,V);
+void finalKV();
+void rFinalKV();
+void encodeAndWrite(KValue<K,V>);
 };
 
 //End of header file part
@@ -316,6 +317,7 @@ MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
     kvdata="";
     iskvDataLeft=1;
     KeyValuesFinished=false;
+    reduceCompleted=false;
     int flag;
     MPI_Initialized(&flag); 
     
@@ -1356,11 +1358,138 @@ int MapReduce<K,V>::replenish(string &data)
     return rvalue; 
 }
 
+template <class K,class V>
+void MapReduce<K,V>::raddkv(K key,V value)
+{
+    KValue<K,V> k;
+    k.key=key;
+    k.value=value;
+    k.ksize=sizeof(key);
+    k.vsize=sizeof(value);
+    finalQueue.push(k);
+}
+template <class K,class V>
+void MapReduce<K,V>::finalKV()
+{
+    MPI_Status status;
+    MPI_Recv(NULL,0,MPI_INT,0,OK_TO_SEND,comm,&status);
+    
+    string str="";
+    int send_limit = 1024*1024;
+    while(!reduceCompleted || !finalQueue.empty())
+    {
+        if(!finalQueue.empty())
+        {
+            str+=kv->encodekv(finalQueue.front());
+            finalQueue.pop();
+        }
+        else
+            usleep(1000);
+        if (str.length() > send_limit)
+        {
+            int length=str.length();
+            char *buffer = strdup(str.c_str());
+            MPI_Send(&length,1,MPI_INT,0,SIZE_INFORMATION,comm);
+            MPI_Send(buffer,length,MPI_CHAR,0,DATA_TRANSFER,comm);
+            str.clear();
+        }
+    }
+    
+    int length=str.length();
+    if (length>0)
+    {
+        char *buffer = strdup(str.c_str());
+        MPI_Send(&length,1,MPI_INT,0,SIZE_INFORMATION,comm);
+        MPI_Send(buffer,length,MPI_CHAR,0,DATA_TRANSFER,comm);    
+        str.clear();
+    }
+    
+    MPI_Send(NULL,0,MPI_CHAR,0,END_OF_TRANSER,comm);    //end of transfer
+}
+template <class K,class V>
+void sendFinalKV(MapReduce<K,V>* mr)
+{
+    mr->finalKV();
+}
+
+template <class K,class V>
+void receiveFinalKV(MapReduce<K,V>* mr)
+{
+    mr->finalKV();
+}
+
+template <class K,class V>
+void MapReduce<K,V>::rFinalKV()
+{
+  /*  int send_limit = 1024*1024;
+    while(!reduceCompleted || !finalQueue.empty())
+    {
+        if(!finalQueue.empty())
+        {
+            encodeAndWrite(finalQueue.Front());
+            finalQueue.pop();
+        }
+        else
+            usleep(1000);
+    }  
+    
+    MPI_Status status;
+    for(int i=1;i<numReducers;i++)
+    {
+        MPI_Send(NULL,0,MPI_INT,i,OK_TO_SEND,comm);
+        while(1)
+        {
+            int length;
+            char *buffer;
+            MPI_Probe(i, MPI_ANY_TAG,comm,&status);
+            
+            if (status.MPI_TAG==SIZE_INFORMATION)
+            {
+                MPI_Recv(&length,1,MPI_INT,i,SIZE_INFORMATION,comm,&status);
+                buffer= new char[length];
+            }
+            else if (status.MPI_TAG==DATA_TRANSFER)
+            {
+                MPI_Recv(buffer,length,MPI_CHAR,i,DATA_TRANSFER,comm,&status);
+                writeToFile();
+            }
+        }
+    }*/
+}
+template <class K,class V>
+void MapReduce<K,V>::encodeAndWrite(KValue<K,V> k)
+{
+    
+}
 
 template <class K,class V>
 int MapReduce<K,V>::reduce(void(*reducefunc)(MapReduce<K,V>*))
 {
-    reducefunc(this);
+    thread t4;
+    thread t5;
+    if (rank<numReducers && rank!=0)
+    {
+        t4 = thread(sendFinalKV<K,V>,this);
+    }    
+    else if (rank==0)
+    {
+        t5 = thread(receiveFinalKV<K,V>,this);
+    }
+    if (rank<numReducers)
+    {
+        reducefunc(this);
+        reduceCompleted=true;
+    }
+    
+    if (rank<numReducers && rank!=0)
+    {
+        t4.join();
+    }      
+    else if (rank==0)
+    {
+        t5.join();
+    }
+    MPI_Barrier(comm);
 }
 
 #endif

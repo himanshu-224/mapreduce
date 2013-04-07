@@ -36,7 +36,7 @@ void rfunc(MapReduce<int,int> *mr)
         int length=kmv.length;
         for(int i=0;i<length;i++)
         {
-           // mr->raddkv(kmv.key,kmv.mv[i].value);
+            mr->raddkv(kmv.key,kmv.mv[i].value);
         }
     }
     
