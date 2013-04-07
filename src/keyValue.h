@@ -13,6 +13,7 @@
 #include<string.h>
 #include <algorithm>
 #include <functional>
+#include <iterator>
 
 #include "logging.h"
 
@@ -61,7 +62,9 @@ private:
 	int fileflag;                     // 1 if file exists, 0 if not
 	*/
 	deque<string> filename;
+	string kvfile;
 	//deque<FILE *> fp;
+	int recvcomp;
 	
 	void setType();
 	
@@ -96,6 +99,8 @@ public:
 string itos(int num);
 vector<string> split(string s, char delim);
 
+string getkvstr(ifstream filep);
+
 template <class K, class V>
 string getfilename(KeyValue<K,V> *,int);
 
@@ -108,6 +113,29 @@ string getfilename(KeyValue<K,V> *obj, int rank)
 	return filename;
 }
 
+string getkvstr(ifstream filep)
+{
+	string str;
+	char c;
+	int bsize;
+	char *buffer;
+	while(filep.good())
+	{
+		c = filep.get();
+		if (c==':'){
+			bsize = atoi(str.c_str());
+			buffer = (char*)malloc(bsize);
+			filep.read(buffer,bsize);
+			str.clear();
+			str = string(buffer,bsize);
+			delete [] buffer;
+			return str;
+		}
+		else{
+			str+=string(1,c);
+		}
+	}
+}
 /*template <class K,class V>
 KeyValue<K,V>::KeyValue()
 {
@@ -818,6 +846,7 @@ inline void KeyValue<int,int>::decodekv(KValue *k1, string str)
 template <class K, class V>
 void KeyValue<K,V>::receivekv(int nump)
 {
+	recvcomp = 0;
 	vector<string> procfile;
 	procfile.resize(nump);
 	//vector<ofstream> procfp;
@@ -888,8 +917,10 @@ void KeyValue<K,V>::receivekv(int nump)
 				}
 				MPI_Recv(NULL,0,MPI_INT,source,END_MAP,comm,&status);
 				nump--;
-				if(nump==0)
+				if(nump==0){
+					recvcomp = 1;
 					return;
+				}
 				break;
 				
 			default:
@@ -897,6 +928,69 @@ void KeyValue<K,V>::receivekv(int nump)
 				err = "Rank:" + itos(source)+ " Message of unknowntag received. Ignoring!!";
 				usleep(10000);
 				break;
+		}
+	}
+}
+
+template <class K, class V>
+void KeyValue<K,V>::sortfiles()
+{
+	string kvfilename[NUM_SFILE];
+	ifstream kvfilep[NUM_SFILE];
+	string newfile;
+	ofstream newfilep;
+	vector<KValue> tempkv;
+	vector<int> index(NUM_SFILE,-1);
+	tempkv.resize(NUM_SFILE);
+	int i,minpos,numfiles;
+	string buffer;
+	KValue temp;
+	while(1){
+		if((filename.size() < NUM_SFILE) || (recvcomp == 0)){
+			usleep(100000);
+			continue;
+		}
+		numfiles = min((int)filename.size(),NUM_SFILE);
+		for(i=0;i<numfiles;i++){
+			kvfilename[i] = filename.front();
+			filename.pop_front();
+			kvfilep[i].open(kvfilename[i].c_str());
+		}
+		newfile = getfilename(this,me);
+		newfilep.open(newfile.c_str(), ios::out | ios::app | ios::binary);
+		for(i=0;i<numfiles;i++){
+			buffer = getkvstr(kvfilep[i]);
+			decodekv(&temp,buffer);
+			copykv(&tempkv[i],temp);
+			index[i] = i;
+		}
+		while(1){
+			minpos = distance(tempkv.begin(),min_element(tempkv.begin(),tempkv.end(),compkv));
+			buffer.clear();
+			buffer = encodekv(tempkv.at(minpos));
+			newfilep.write(strdup(buffer.c_str()),buffer.length());
+			buffer.clear();
+			if(kvfilep[index[minpos]].good()){
+				buffer = getkvstr(kvfilep[index[minpos]]);
+				decodekv(&temp,buffer);
+				copykv(&tempkv[minpos],temp);
+			}
+			else{
+				tempkv.erase(tempkv.begin() + minpos);
+				kvfilep[index[minpos]].close();
+				remove(kvfilename[index[minpos]].c_str());
+				index.erase(index.begin() + minpos);
+				if (tempkv.size() == 0){
+					newfilep.close();
+					filename.push_front(newfile);
+					break;
+				}
+			}
+		}
+		if ((recvcomp == 1) && (filename.size() == 1)){
+			kvfile = filename.front();
+			filename.pop_front();
+			return;
 		}
 	}
 }
