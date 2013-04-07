@@ -29,7 +29,7 @@ class KeyValue
 private:
 	// Add private members of class here
 	MPI_Comm comm;
-	Logging *logobj;
+	Logging logobj;
 	int me;
 	
 	//structure to store key values
@@ -57,7 +57,7 @@ private:
 	
 public:
 	KeyValue();
-	KeyValue(MPI_Comm, Logging *);
+	KeyValue(MPI_Comm, Logging &);
 	~KeyValue();
 	
 	void add(K, V);
@@ -95,7 +95,7 @@ KeyValue<K,V>::KeyValue()
 		name[namelen]='\0';
 		
 		sprintf(str,"ERROR on proc %d (%s): Failed to allocate %d	 bytes for array filename\n",me,name,n);
-		logobj->error(str);
+		logobj.error(str);
 	}
 	nkv = 0;
 	setType();
@@ -105,7 +105,7 @@ KeyValue<K,V>::KeyValue()
 	fp=NULL;
 }
 template <class K, class V>
-KeyValue<K,V>::KeyValue(MPI_Comm communicator, Logging *log_caller)
+KeyValue<K,V>::KeyValue(MPI_Comm communicator, Logging &log_caller)
 {
 	comm = communicator;
 	logobj = log_caller;
@@ -123,7 +123,7 @@ KeyValue<K,V>::KeyValue(MPI_Comm communicator, Logging *log_caller)
 		name[namelen]='\0';
 		
 		sprintf(str,"ERROR on proc %d (%s): Failed to allocate %d	 bytes for array filename\n",me,name,n);
-		logobj->error(str);
+		logobj.error(str);
 	}
 	nkv = 0;
 	setType();
@@ -343,7 +343,7 @@ void KeyValue<K,V>::add(K key, V value)
 	newkv.vsize = sizeof(value);
 	long tsize = newkv.ksize+newkv.vsize;
 	if(tsize > INT_MAX)					// A limit on size of key value pair
-		logobj->error("Single Key Value pair size exceeds int size");
+		logobj.error("Single Key Value pair size exceeds int size");
 	kv.push_back(newkv);
 	nkv++;
 }
@@ -376,6 +376,7 @@ int KeyValue<K,V>::sortkv()
 {
 	int numkey = nkv;
 	sort(kv.begin(),kv.begin()+numkey,compkv);
+    logobj.localLog("check");
 	return numkey;
 }
 
@@ -628,7 +629,7 @@ void KeyValue<K,V>::copykv(KValue *k1, KValue k2)
 template <class K, class V>
 void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int nump2))
 {
-	logobj->localLog("Entered partitionkv");
+	logobj.localLog("Entered partitionkv");
 	KValue *kvalue= new KValue;
 	vector<deque<KValue>> tempkv;
 	vector<int> tempnkv(nump,0);
@@ -644,7 +645,7 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 		tempkv[hvalue].push_back(*kvalue);
 		tempnkv[hvalue]++;
 	}
-	logobj->localLog("KeyValue pair partiotioned");
+	logobj.localLog("KeyValue pair partiotioned");
 	for(i=0;i<nump;i++)
 	{
 		cout<<"Proc "<<i<<endl;
@@ -676,7 +677,8 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 template <class K, class V>
 void KeyValue<K,V>::partitionkv(int nump, int numkey)
 {
-	logobj->localLog("Entered partitionkv");
+	logobj.localLog("Entered partitionkv");
+    usleep(1000000);
 	KValue *kvalue= new KValue;
 	vector<deque<KValue>> tempkv;
 	vector<int> tempnkv(nump,0);
@@ -692,7 +694,7 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey)
 		tempkv[hvalue].push_back(*kvalue);
 		tempnkv[hvalue]++;
 	}
-	logobj->localLog("KeyValue pair partiotioned");
+	logobj.localLog("KeyValue pair partiotioned");
 	for(i=0;i<nump;i++)
 	{
 		cout<<"Proc "<<i<<endl;

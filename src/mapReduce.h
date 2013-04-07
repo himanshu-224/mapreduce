@@ -319,6 +319,11 @@ MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
 
     if (rank==0)
     {
+        if (numReducers>nprocs)
+        {
+            cout<<"No. of reducers exceeds no of processors\n";
+            exit(-1);
+        }        
         readDefaults("configuration/config.xml");
         sendDefaults();
     }
@@ -330,6 +335,7 @@ MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
     logobj=Logging(logDir,rank,debug);
     
     parseArguments(argc,argv);
+    kv=KeyValue<K,V>(comm,logobj);
     
     if (rank==0)  /*Mount all directories except its own in READONLY mode*/
     {
@@ -1176,7 +1182,7 @@ void MapReduce<K,V>::finalisemap(int(*hashfunc)(K key, int nump) = defaulthash<K
 	//logobj.localLog("Entered finalisemap\n");
 	int t = kv.sortkv();
 	logobj.localLog("sorted keyValue pair");
-	//kv.partitionkv(numReducers,t,hashfunc);
+	kv.partitionkv(numReducers,t,hashfunc);
 	logobj.localLog("exit finalisemap");
 }
 
