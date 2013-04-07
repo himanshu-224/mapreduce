@@ -40,7 +40,7 @@ private:
     string logFolder;
     
     Logging logobj;
-	KeyValue<K,V> kv;
+	KeyValue<K,V> *kv;
     
     string separator;
     string fsplit;
@@ -335,7 +335,7 @@ MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
     logobj=Logging(logDir,rank,debug);
     
     parseArguments(argc,argv);
-    kv=KeyValue<K,V>(comm,logobj);
+    kv=new KeyValue<K,V>(comm,logobj);
     
     if (rank==0)  /*Mount all directories except its own in READONLY mode*/
     {
@@ -728,35 +728,35 @@ vector<primaryKV> MapReduce<K,V>::createChunk(int front)
     int crsize=0;
     for(int i=0;i<chunks[front].chunk.size();i++)
     {
-        primaryKV kv;
+        primaryKV pkv;
         FileInfo fi=chunks[front].chunk[i];
         ifstream fin;
         int length=fi.endByte-fi.startByte+1;
         if (fi.localpath.compare("")==0)
         {   
-            kv.key=fi.path;
+            pkv.key=fi.path;
             fin.open(fi.path.c_str(), ios::in | ios::binary);
             fin.seekg (fi.startByte-1, fin.beg);
         }
         else
         {
-            kv.key=fi.localpath;
+            pkv.key=fi.localpath;
             fin.open(fi.localpath.c_str(), ios::in | ios::binary);
             fin.seekg(0,fin.beg);
         }
         char *buffer= new char[length];
         fin.read(buffer,length);
-        kv.value=string(buffer,length);
-        chunk.push_back(kv);
-        crsize+=kv.value.length();
+        pkv.value=string(buffer,length);
+        chunk.push_back(pkv);
+        crsize+=pkv.value.length();
         
-        if (kv.value.length()!=fin.gcount())
+        if (pkv.value.length()!=fin.gcount())
         {
             logobj.localLog("\tFor chunk "+itos(chunks[front].number)+ ", for part "+itos(i+1)+",bytes read NOTEQUALS gcount");
         }
         
         //logobj.localLog("\tSize of chunk "+itos(chunks[front].number)+ " required, part "+itos(i+1)+" = "+itos(length));
-        logobj.localLog("\tSize of chunk "+itos(chunks[front].number)+ " created, part "+itos(i+1)+" = "+itos(kv.value.length()));        
+        logobj.localLog("\tSize of chunk "+itos(chunks[front].number)+ " created, part "+itos(i+1)+" = "+itos(pkv.value.length()));        
         //logobj.localLog("\tSize of chunk "+itos(chunks[front].number)+ " read, part "+itos(i+1)+" = "+itos(fin.gcount()));
         fin.close();
     }    
@@ -1173,16 +1173,16 @@ void RecvData(queue<char> &buffer, int &completed, int recvRank, MPI_Comm comm, 
 template <class K, class V>
 void MapReduce<K,V>::addkv(K key, V value)
 {
-	kv.add(key,value);
+	kv->add(key,value);
 }
 
 template <class K, class V>
 void MapReduce<K,V>::finalisemap(int(*hashfunc)(K key, int nump) = defaulthash<K>)
 {
 	//logobj.localLog("Entered finalisemap\n");
-	int t = kv.sortkv();
+	int t = kv->sortkv();
 	logobj.localLog("sorted keyValue pair");
-	kv.partitionkv(numReducers,t,hashfunc);
+	kv->partitionkv(numReducers,t,hashfunc);
 	logobj.localLog("exit finalisemap");
 }
 
