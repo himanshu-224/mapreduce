@@ -297,7 +297,7 @@ MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
     debug=1;
     mpi_initialized_mr=1;
     chunksCompleted=0;
-    
+    numReducers = numRed;
     int flag;
     MPI_Initialized(&flag); 
     
@@ -1171,10 +1171,13 @@ void MapReduce<K,V>::addkv(K key, V value)
 }
 
 template <class K, class V>
-void MapReduce<K,V>::finalisemap(int(*hashfunc)(K key, int nump))
+void MapReduce<K,V>::finalisemap(int(*hashfunc)(K key, int nump) = defaulthash<K>)
 {
+	//logobj.localLog("Entered finalisemap\n");
 	int t = kv.sortkv();
-	kv.partitionkv(numReducers,t,hashfunc);
+	logobj.localLog("sorted keyValue pair");
+	//kv.partitionkv(numReducers,t,hashfunc);
+	logobj.localLog("exit finalisemap");
 }
 
 #endif
