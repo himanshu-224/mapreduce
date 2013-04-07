@@ -628,6 +628,7 @@ void KeyValue<K,V>::copykv(KValue *k1, KValue k2)
 template <class K, class V>
 void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int nump2))
 {
+	logobj->localLog("Entered partitionkv");
 	KValue *kvalue= new KValue;
 	vector<deque<KValue>> tempkv;
 	vector<int> tempnkv(nump,0);
@@ -643,6 +644,7 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 		tempkv[hvalue].push_back(*kvalue);
 		tempnkv[hvalue]++;
 	}
+	logobj->localLog("KeyValue pair partiotioned");
 	for(i=0;i<nump;i++)
 	{
 		cout<<"Proc "<<i<<endl;
@@ -674,6 +676,7 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 template <class K, class V>
 void KeyValue<K,V>::partitionkv(int nump, int numkey)
 {
+	logobj->localLog("Entered partitionkv");
 	KValue *kvalue= new KValue;
 	vector<deque<KValue>> tempkv;
 	vector<int> tempnkv(nump,0);
@@ -689,12 +692,13 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey)
 		tempkv[hvalue].push_back(*kvalue);
 		tempnkv[hvalue]++;
 	}
-	/*for(i=0;i<nump;i++)
+	logobj->localLog("KeyValue pair partiotioned");
+	for(i=0;i<nump;i++)
 	{
 		cout<<"Proc "<<i<<endl;
 		printkv(tempkv[i]);
-	}*/
-	for(i=0;i<nump;i++)
+	}
+	/*for(i=0;i<nump;i++)
 	{
 		MPI_Send(&tempnkv[i],1,MPI_INT,i,2,comm);
 		str.clear();
@@ -714,7 +718,7 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey)
 		{
 			MPI_Send(strdup(str.c_str()),str.length(),MPI_CHAR,i,3,comm);
 		}
-	}
+	}*/
 }
 
 template <class K, class V>
