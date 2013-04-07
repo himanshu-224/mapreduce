@@ -71,10 +71,10 @@ private:
 	public:
 //data provided as blocks of string to user suppiled map function
 
-int map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&, int&));
-int map(int argc,char **argv, void(*mapfunc)(vector<string>, int&));
-int map(void(*mapfunc)(int nprocs, int rank, int&));
-int map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primaryKV&, int&));
+int map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&, MapReduce<K,V> *),int(*hashfunc)(K key, int nump));
+int map(int argc,char **argv, void(*mapfunc)(vector<string>,  MapReduce<K,V> *),int(*hashfunc)(K key, int nump));
+int map(void(*mapfunc)(int nprocs, int rank,  MapReduce<K,V> *),int(*hashfunc)(K key, int nump));
+int map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primaryKV&,  MapReduce<K,V> *),int(*hashfunc)(K key, int nump));
 
 MapReduce(int, char**,int);
 MapReduce(MPI_Comm communicator,int, char**);
@@ -99,7 +99,7 @@ vector<primaryKV> createChunk(int front);
 void sendData(char* chunk,int size, int curRank);
 
 void addkv(K, V);
-void finalisemap();
+void finalisemap(int(*hashfunc)(K key, int nump));
 
 };
 
@@ -376,10 +376,10 @@ MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
         }
     }
     thread t2;
-    if (rank<numReducers)
+    /*if (rank<numReducers)
     {
         t2 = thread(ReducerReceive<K,V>,this);
-    }
+    }*/
     MPI_Barrier(comm);
    
 }
@@ -886,8 +886,18 @@ void MapReduce<K,V>::mountDir()
      }     
      
 }
+
+template<class K>
+int defaulthash(K key, int nump)
+{
+    hash<K> hash_fn;
+    size_t v = hash_fn(key)%nump;
+    //v = rand()%nump + 1;
+    return (int)v;
+}
+
 template <class K,class V>
-int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&, int&))
+int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&, MapReduce<K,V> *), int(*hashfunc)(K key, int nump) = defaulthash<K>)
 {
     parseArguments(argc,argv);
     if (rank==0)
@@ -897,10 +907,10 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
     MPI_Barrier(comm);  
     
     thread t3;
-    if (rank<numReducers)
+    /*if (rank<numReducers)
     {
         t3=thread(ReducerSort<K,V>,this);
-    }  
+    }  */
     
     sendRankMapping();
     thread t1=thread(threadFunc1<K,V>,this);
@@ -916,9 +926,8 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
             chunksObtained.pop();
             chunksCompleted++;
             /*Insert Map Code Here*/
-            int kv;
-            mapfunc(chunk,kv);
-	    finalisemap();
+            mapfunc(chunk,this);
+            finalisemap(hashfunc);
             /*Insert map Code here*/
         }
         else
@@ -928,8 +937,8 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
     }  
     t1.join();
     
-    if (rank<numReducers)
-        t3.join();
+  /*  if (rank<numReducers)
+        t3.join();*/
     return 1;
 }
 
@@ -937,7 +946,7 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
  * is given the paths of the files belonging to its chunk. If a file is nonlocal
  * it is first copied locally and the local path is provided*/
 template <class K,class V>
-int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<string>, int&))
+int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<string>,  MapReduce<K,V> *),int(*hashfunc)(K key, int nump) = defaulthash<K> )
 {
     parseArguments(argc,argv);
     if (rank==0)
@@ -977,9 +986,8 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<string>, int
                 else
                     pathList.push_back(fileList[i].localpath);
             }
-            int kv;
-            mapfunc(pathList,kv);
-	    finalisemap();
+            mapfunc(pathList,this);
+            finalisemap(hashfunc);
             /*Insert map Code here*/
         }
         else
@@ -996,7 +1004,7 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<string>, int
 /* For the case when no data is provided to the user defined map function. The user is responsible for 
  * generating appropriate portion of data for its process  using it's process's rank and nprocs*/
 template <class K,class V>
-int MapReduce<K,V>::map(void(*mapfunc)(int nprocs, int rank, int& kv))
+int MapReduce<K,V>::map(void(*mapfunc)(int nprocs, int rank,  MapReduce<K,V> *),int(*hashfunc)(K key, int nump) = defaulthash<K> )
 {  
     int kv;
     thread t3;
@@ -1005,8 +1013,8 @@ int MapReduce<K,V>::map(void(*mapfunc)(int nprocs, int rank, int& kv))
         t3=thread(ReducerSort<K,V>,this);
     }    
     
-    mapfunc(nprocs, rank, kv);
-    finalisemap();
+    mapfunc(nprocs, rank, this);
+    finalisemap(hashfunc);
     
     if (rank<numReducers)
         t3.join();
@@ -1017,7 +1025,7 @@ int MapReduce<K,V>::map(void(*mapfunc)(int nprocs, int rank, int& kv))
 /*For the case when data is not read from the disk but is generated centrally, i.e. by rank 0. The generated 
  data is then sent to each of the processes*/
 template <class K,class V>
-int MapReduce<K,V>::map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primaryKV&, int&))
+int MapReduce<K,V>::map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primaryKV&,  MapReduce<K,V> *),int(*hashfunc)(K key, int nump) = defaulthash<K> )
 {  
     queue<char> buffer;
     int completed=0,flag=1;
@@ -1091,8 +1099,8 @@ int MapReduce<K,V>::map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primar
                 primaryKV chk;
                 chk.key=itos((nprocs-1)*i+rank);
                 chk.value=chunk;
-                mapfunc(chk,kv);
-		finalisemap();
+                mapfunc(chk,this);
+                finalisemap(hashfunc);
                 i++;
             }
       }
@@ -1154,10 +1162,10 @@ void MapReduce<K,V>::addkv(K key, V value)
 }
 
 template <class K, class V>
-void MapReduce<K,V>::finalisemap()
+void MapReduce<K,V>::finalisemap(int(*hashfunc)(K key, int nump))
 {
 	int t = kv.sortkv();
-	kv.partitionkv(numReducers,t);
+	kv.partitionkv(numReducers,t,hashfunc);
 }
 
 #endif

@@ -643,12 +643,12 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 		tempkv[hvalue].push_back(*kvalue);
 		tempnkv[hvalue]++;
 	}
-	/*for(i=0;i<nump;i++)
+	for(i=0;i<nump;i++)
 	{
 		cout<<"Proc "<<i<<endl;
 		printkv(tempkv[i]);
-	}*/
-	for(i=0;i<nump;i++)
+	}
+	/*for(i=0;i<nump;i++)
 	{
 		MPI_Send(&tempnkv[i],1,MPI_INT,i,2,comm);
 		str.clear();
@@ -668,7 +668,7 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 		{
 			MPI_Send(strdup(str.c_str()),str.length(),MPI_CHAR,i,3,comm);
 		}
-	}
+	}*/
 }
 
 template <class K, class V>
