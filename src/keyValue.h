@@ -79,7 +79,7 @@ public:
 string itos(int num);
 vector<string> split(string s, char delim);
 
-template <class K,class V>
+/*template <class K,class V>
 KeyValue<K,V>::KeyValue()
 {
 	int curtime = time(NULL);
@@ -103,7 +103,7 @@ KeyValue<K,V>::KeyValue()
 	sprintf(filename,"/export/mapReduce/keyValue/kv.%d",curtime);
 	fileflag = 0;
 	fp=NULL;
-}
+}*/
 template <class K, class V>
 KeyValue<K,V>::KeyValue(MPI_Comm communicator, Logging &log_caller)
 {
