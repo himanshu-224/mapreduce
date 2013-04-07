@@ -375,12 +375,6 @@ MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
 
         }
     }
-    thread t2;
-    /*if (rank<numReducers)
-    {
-        t2 = thread(ReducerReceive<K,V>,this);
-    }*/
-    MPI_Barrier(comm);
    
 }
 
@@ -904,13 +898,14 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
     {   
         getChunks();    
     }
-    MPI_Barrier(comm);  
-    
+    thread t2;
     thread t3;
-    /*if (rank<numReducers)
+    if (rank<numReducers)
     {
+        t2 = thread(ReducerReceive<K,V>,this);
         t3=thread(ReducerSort<K,V>,this);
-    }  */
+    }
+    MPI_Barrier(comm);  
     
     sendRankMapping();
     thread t1=thread(threadFunc1<K,V>,this);
@@ -927,7 +922,7 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
             chunksCompleted++;
             /*Insert Map Code Here*/
             mapfunc(chunk,this);
-            finalisemap(hashfunc);
+            //finalisemap(hashfunc);
             /*Insert map Code here*/
         }
         else
@@ -937,8 +932,10 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
     }  
     t1.join();
     
-  /*  if (rank<numReducers)
-        t3.join();*/
+   if (rank<numReducers){
+       t2.join();
+       t3.join();
+   }
     return 1;
 }
 
@@ -953,14 +950,14 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<string>,  Ma
     {   
         getChunks();    
     }  
-    
-    MPI_Barrier(comm);  
-    
+    thread t2;
     thread t3;
     if (rank<numReducers)
     {
+        t2 = thread(ReducerReceive<K,V>,this);
         t3=thread(ReducerSort<K,V>,this);
-    }  
+    }
+    MPI_Barrier(comm);  
     
     sendRankMapping();
     thread t1=thread(threadFunc1<K,V>,this);
@@ -997,7 +994,10 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<string>,  Ma
     }  
     t1.join();
     if (rank<numReducers)
+    {
+        t2.join();
         t3.join();
+    }
     return 1;
 }
 
@@ -1007,17 +1007,22 @@ template <class K,class V>
 int MapReduce<K,V>::map(void(*mapfunc)(int nprocs, int rank,  MapReduce<K,V> *),int(*hashfunc)(K key, int nump) = defaulthash<K> )
 {  
     int kv;
+    thread t2;
     thread t3;
     if (rank<numReducers)
     {
+        t2 = thread(ReducerReceive<K,V>,this);
         t3=thread(ReducerSort<K,V>,this);
-    }    
+    }
+    MPI_Barrier(comm);
     
     mapfunc(nprocs, rank, this);
     finalisemap(hashfunc);
     
-    if (rank<numReducers)
+    if (rank<numReducers){
+        t2.join();
         t3.join();
+    }
     
     return 1;
 }
@@ -1029,12 +1034,15 @@ int MapReduce<K,V>::map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primar
 {  
     queue<char> buffer;
     int completed=0,flag=1;
-    int kv;
+
+    thread t2;
     thread t3;
     if (rank<numReducers)
     {
+        t2 = thread(ReducerReceive<K,V>,this);
         t3=thread(ReducerSort<K,V>,this);
     }
+    MPI_Barrier(comm);
     if (rank==0)
     {
         thread t1=thread(genfunc,buffer,completed);
@@ -1109,6 +1117,7 @@ int MapReduce<K,V>::map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primar
     
     if (rank<numReducers)
     {
+        t2.join();
         t3.join();
     }
     return 1;
