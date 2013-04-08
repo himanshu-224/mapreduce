@@ -712,7 +712,7 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 			tempnkv[hvalue]++;
 		}
 	}
-	logobj.localLog("KeyValue pair partiotioned");
+	logobj.localLog("KeyValue pair partitioned");
 	/*for(i=0;i<nump;i++)
 	{
 		cout<<"Proc "<<i<<endl;
@@ -777,7 +777,7 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey)
 			tempnkv[hvalue]++;
 		}
 	}
-	logobj.localLog("KeyValue pair partiotioned");
+	logobj.localLog("KeyValue pair partitioned");
 	/*for(i=0;i<nump;i++)
 	{
 		cout<<"Proc "<<i<<endl;
@@ -808,7 +808,7 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey)
 			MPI_Send(strdup(str.c_str()),str.length(),MPI_CHAR,i,KEYVALUE,comm);
 		}
 		len = 0;
-		MPI_Send(&len,1,MPI_INT,i,END_MAP_TASK,comm);
+		MPI_Send(NULL,0,MPI_INT,i,END_MAP_TASK,comm);
 	}
 }
 

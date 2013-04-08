@@ -29,9 +29,8 @@
 #define MAP_REDUCE
 
 #define OK_TO_SEND 17
-#define SIZE_INFORMATION 15
-#define DATA_TRANSFER 16
-#define END_OF_TRANSER 20
+#define FILE_PATH 15
+#define FILE_PATH_LENGTH 16
 
 using namespace std;
 
@@ -46,10 +45,11 @@ private:
 	KeyValue<K,V> *kv;
     
     string ipListFile, nodeInfoFile, chunkMapFile;
-    string dirFile, homedir, mntDir, logDir, logFolder;
+    string dirFile, homedir, mntDir,exportDir, logDir, logFolder;
     string separator, fsplit, kvDir;
     string myip,rootip;
     string kvdata;
+    string outputFile, localOutputFile;
     
     int nprocs,rank, mpi_initialized_mr, debug;
     int curKVposition, kvfilesize, iskvDataLeft;
@@ -77,7 +77,7 @@ int map(int argc,char **argv, void(*mapfunc)(vector<string>,  MapReduce<K,V> *),
 int map(void(*mapfunc)(int nprocs, int rank,  MapReduce<K,V> *),int(*hashfunc)(K key, int nump));
 int map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primaryKV&,  MapReduce<K,V> *),int(*hashfunc)(K key, int nump));
 
-int reduce(void(*reducefunc)(MapReduce<K,V>*));
+int reduce(void(*reducefunc)(MapReduce<K,V>*), void(*outfunc)(KValue<K,V> k));
 
 MapReduce(int, char**,int);
 MapReduce(MPI_Comm communicator,int, char**);
@@ -114,7 +114,7 @@ void reRead();
 void raddkv(K,V);
 void finalKV();
 void rFinalKV();
-void encodeAndWrite(KValue<K,V>);
+void readAndAppend(char*);
 };
 
 //End of header file part
@@ -122,7 +122,30 @@ void encodeAndWrite(KValue<K,V>);
 /*Start of Implementation Part*/
 
 string itos(int num);
+string itos(string str);
+string itos(char ch);
+string itos(float num);
+string itos(double num);
 string extractIP(string str);
+
+string itos(string str)
+{
+    return str;
+}
+
+string itos(char ch)
+{    
+    string s=string(1,ch);
+    return s;
+}
+string itos(float num)
+{
+    return static_cast<ostringstream*>( &(ostringstream() << num) )->str();
+}
+string itos(double num)
+{
+    return static_cast<ostringstream*>( &(ostringstream() << num) )->str();
+}
 
 //template <class K,class V> void threadFunc1(MapReduce<int,int> *obj);
 
@@ -188,21 +211,26 @@ template <class K,class V>
 void MapReduce<K,V>::readDefaults(string configFile)
 {
     pugi::xml_document doc;
+    cout<<configFile<<endl;
     if (!doc.load_file(configFile.c_str()))
     {
-        cout<<"Could not locate configuration file..Exiting";
+        cout<<"Could not locate configuration file..Exiting\n";
         exit(-1); 
     }
     pugi::xml_node conf = doc.child("Configuration");
     
     pugi::xml_node paths = conf.child("Paths");
     homedir= paths.child_value("HomeDirectory");
-    ipListFile = homedir+paths.child_value("IPListFile");
-    nodeInfoFile = homedir+paths.child_value("NodeInfoFile");
-    chunkMapFile= homedir+paths.child_value("ChunkMapFile");
+    exportDir= paths.child_value("ExportDirectory");
+    
+    ipListFile = homedir+exportDir+paths.child_value("IPListFile");
+    nodeInfoFile = homedir+exportDir+paths.child_value("NodeInfoFile");
+    chunkMapFile= homedir+exportDir+paths.child_value("ChunkMapFile");
+    kvDir=homedir+exportDir+paths.child_value("KeyValueDirectory");
+    outputFile=homedir+exportDir+paths.child_value("OutputFile");
+    
     mntDir= homedir+paths.child_value("MountDirectory");
     logDir=homedir+paths.child_value("LogDirectory");
-    kvDir=homedir+paths.child_value("KeyValueDirectory");
     
     pugi::xml_node params = conf.child("Parameters");
     chunkSize = atoi(params.child_value("ChunkSize"));  
@@ -222,8 +250,8 @@ void MapReduce<K,V>::sendDefaults()
     ifstream fin (ipListFile.c_str());
     fin>>singleip;
     fin.close();    
-    int pos=chunkMapFile.find("export");
-    globalchunkMapFile=mntDir+singleip+chunkMapFile.substr(pos+6);
+    int pos=chunkMapFile.find(exportDir);
+    globalchunkMapFile=mntDir+singleip+'/'+chunkMapFile.substr(pos+exportDir.length());
     }
     else
         globalchunkMapFile=chunkMapFile;
@@ -302,6 +330,7 @@ template <class K,class V>
 void MapReduce<K,V>::reduceSort()
 {
 	kv->sortfiles();
+    findFileSize();
 }
 
 
@@ -337,6 +366,7 @@ MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
     MPI_Comm_rank(comm,&rank);
     MPI_Comm_size(comm,&nprocs);    
 
+    
     if (rank==0)
     {
         if (numReducers>nprocs)
@@ -351,6 +381,9 @@ MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
     {
         receiveDefaults();
     }
+    
+    localOutputFile="localOutfile_rank_"+itos(rank);
+    
     mkdir(logDir.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH); //created directory for logs
     logobj=Logging(logDir,rank,debug);
     
@@ -374,7 +407,7 @@ MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
             if (isCluster)
             {
                 struct statfs foo;
-                string src = *it+":"+homedir+"export";
+                string src = *it+":"+homedir+exportDir;
                 string dest= mntDir+*it;
                 int notMounted=statfs (dest.c_str(), &foo);
                 if ((not notMounted)&& (foo.f_type == NFS_SUPER_MAGIC))
@@ -579,7 +612,7 @@ void MapReduce<K,V>::sendRankMapping()
         logobj.localLog("Created directory : "+mntDir);
 
         struct statfs foo;
-        string src = rootip+":"+homedir+"export";
+        string src = rootip+":"+homedir+exportDir;
         string dest= mntDir+rootip; 
         int notMounted=statfs (dest.c_str(), &foo);
         if ((not notMounted)&& (foo.f_type == NFS_SUPER_MAGIC))
@@ -659,7 +692,7 @@ void MapReduce<K,V>::getProcChunks(int tprocs, int mypos, string myip)
     {
 
         struct statfs foo;
-        string src = myip+":"+homedir+"export";
+        string src = myip+":"+homedir+exportDir;
         string dest= mntDir+myip; 
         int notMounted=statfs (dest.c_str(), &foo);
         if ((not notMounted)&& (foo.f_type == NFS_SUPER_MAGIC))
@@ -776,7 +809,7 @@ vector<primaryKV> MapReduce<K,V>::createChunk(int front)
         }
         
         //logobj.localLog("\tSize of chunk "+itos(chunks[front].number)+ " required, part "+itos(i+1)+" = "+itos(length));
-        logobj.localLog("\tSize of chunk "+itos(chunks[front].number)+ " created, part "+itos(i+1)+" = "+itos(pkv.value.length()));        
+        logobj.localLog("\tSize of chunk "+itos(chunks[front].number)+ " created, part "+itos(i+1)+" = "+itos((int)pkv.value.length()));        
         //logobj.localLog("\tSize of chunk "+itos(chunks[front].number)+ " read, part "+itos(i+1)+" = "+itos(fin.gcount()));
         fin.close();
     }    
@@ -847,7 +880,7 @@ void MapReduce<K,V>::fetchNonLocal()
          }
          
      }
-     logobj.localLog("Chunks obtained "+itos(chunksObtained.size()));
+     logobj.localLog("Chunks obtained "+itos((int)chunksObtained.size()));
 }
 
 template <class K,class V>
@@ -879,7 +912,7 @@ void MapReduce<K,V>::mountDir()
      for (vector<string>::iterator it=iplist.begin(); it!=iplist.end();++it)
      {
         struct statfs foo;
-        string src = *it+":"+homedir+"export";
+        string src = *it+":"+homedir+exportDir;
         string dest= mntDir+*it; 
         int notMounted=statfs (dest.c_str(), &foo);
         if ((not notMounted)&& (foo.f_type == NFS_SUPER_MAGIC))
@@ -1370,17 +1403,18 @@ void MapReduce<K,V>::raddkv(K key,V value)
 }
 template <class K,class V>
 void MapReduce<K,V>::finalKV()
-{
-    MPI_Status status;
-    MPI_Recv(NULL,0,MPI_INT,0,OK_TO_SEND,comm,&status);
-    
+{   
     string str="";
     int send_limit = 1024*1024;
+    string localpath = mntDir+exportDir+localOutputFile;
+    ofstream fout;
+    fout.open(localpath.c_str(), ios::out | ios::binary);
+    
     while(!reduceCompleted || !finalQueue.empty())
     {
         if(!finalQueue.empty())
         {
-            str+=kv->encodekv(finalQueue.front());
+            str+=outputFormat(finalQueue.front());
             finalQueue.pop();
         }
         else
@@ -1389,8 +1423,7 @@ void MapReduce<K,V>::finalKV()
         {
             int length=str.length();
             char *buffer = strdup(str.c_str());
-            MPI_Send(&length,1,MPI_INT,0,SIZE_INFORMATION,comm);
-            MPI_Send(buffer,length,MPI_CHAR,0,DATA_TRANSFER,comm);
+            fout.write(buffer,length);
             str.clear();
         }
     }
@@ -1398,13 +1431,22 @@ void MapReduce<K,V>::finalKV()
     int length=str.length();
     if (length>0)
     {
+        int length=str.length();
         char *buffer = strdup(str.c_str());
-        MPI_Send(&length,1,MPI_INT,0,SIZE_INFORMATION,comm);
-        MPI_Send(buffer,length,MPI_CHAR,0,DATA_TRANSFER,comm);    
+        fout.write(buffer,length);
         str.clear();
     }
+    fout.close();
     
-    MPI_Send(NULL,0,MPI_CHAR,0,END_OF_TRANSER,comm);    //end of transfer
+    MPI_Status status;
+    MPI_Recv(NULL,0,MPI_INT,0,OK_TO_SEND,comm,&status);
+    string fullpath=mntDir+myip+'/'+localOutputFile;
+    char *filename = strdup(fullpath.c_str());
+    length = fullpath.length()+1;
+    
+    MPI_Send(&length,1,MPI_INT,0,FILE_PATH_LENGTH,comm);
+    
+    MPI_Send(filename,length,MPI_CHAR,0,FILE_PATH,comm);
 }
 template <class K,class V>
 void sendFinalKV(MapReduce<K,V>* mr)
@@ -1419,51 +1461,98 @@ void receiveFinalKV(MapReduce<K,V>* mr)
 }
 
 template <class K,class V>
+string outputFormat(KValue<K,V> k)
+{
+    string str = itos(k.key)+"\t"+itos(k.value)+"\n";
+    return str;
+}
+
+template <class K,class V>
 void MapReduce<K,V>::rFinalKV()
 {
-  /*  int send_limit = 1024*1024;
+    string str="";
+    int send_limit = 1024*1024;
+    ofstream fout;
+    fout.open(outputFile.c_str(), ios::out | ios::binary);
+    
     while(!reduceCompleted || !finalQueue.empty())
     {
         if(!finalQueue.empty())
         {
-            encodeAndWrite(finalQueue.Front());
+            str+=outputFormat(finalQueue.front());
             finalQueue.pop();
         }
         else
             usleep(1000);
-    }  
+        if (str.length() > send_limit)
+        {
+            int length=str.length();
+            char *buffer = strdup(str.c_str());
+            fout.write(buffer,length);
+            str.clear();
+        }
+    }
+    
+    int length=str.length();
+    if (length>0)
+    {
+        int length=str.length();
+        char *buffer = strdup(str.c_str());
+        fout.write(buffer,length);
+        str.clear();
+    }
+    fout.close();
     
     MPI_Status status;
     for(int i=1;i<numReducers;i++)
     {
         MPI_Send(NULL,0,MPI_INT,i,OK_TO_SEND,comm);
-        while(1)
+        MPI_Probe(i, MPI_ANY_TAG,comm,&status);
+        int length;
+        if (status.MPI_TAG==FILE_PATH_LENGTH)
         {
-            int length;
-            char *buffer;
-            MPI_Probe(i, MPI_ANY_TAG,comm,&status);
-            
-            if (status.MPI_TAG==SIZE_INFORMATION)
-            {
-                MPI_Recv(&length,1,MPI_INT,i,SIZE_INFORMATION,comm,&status);
-                buffer= new char[length];
-            }
-            else if (status.MPI_TAG==DATA_TRANSFER)
-            {
-                MPI_Recv(buffer,length,MPI_CHAR,i,DATA_TRANSFER,comm,&status);
-                writeToFile();
-            }
+            MPI_Recv(&length,1,MPI_INT,i,FILE_PATH_LENGTH,comm,&status);
+            char* buffer= new char[length];
+            MPI_Recv(buffer,length,MPI_CHAR,i,FILE_PATH,comm,&status);
+            readAndAppend(buffer);
         }
-    }*/
+    }
 }
-template <class K,class V>
-void MapReduce<K,V>::encodeAndWrite(KValue<K,V> k)
+template<class K,class V>
+void MapReduce<K,V>::readAndAppend(char *buffer)
 {
+    fstream fin;
+    fin.open(buffer, ios::in | ios::binary);
+    fin.seekg(0,fin.end);
+    int length=fin.tellg();
+    fin.seekg(0,fin.beg);
     
+    int cutoff=4*1024*1024;
+    
+    ofstream fout;
+    fout.open(outputFile.c_str(),ios::out | ios::binary |ios::app);
+    
+    if (length<=cutoff)
+        cutoff=length;
+    
+    while(length>0)    
+    {
+        char *buffer= new char[cutoff];
+        fin.read(buffer,cutoff);
+        logobj.localLog("Reading for final KV Output transfer : No. of bytes read = "+itos(fin.gcount()));
+        fout.write(buffer,cutoff);
+        
+        length-=cutoff;
+        if (length<=cutoff)
+            cutoff=length;        
+    }    
+    fin.close();
+    fout.close();
 }
 
+
 template <class K,class V>
-int MapReduce<K,V>::reduce(void(*reducefunc)(MapReduce<K,V>*))
+int MapReduce<K,V>::reduce(void(*reducefunc)(MapReduce<K,V>*), void(*outfunc)(KValue<K,V> k)= outputFormat)
 {
     thread t4;
     thread t5;
