@@ -7,6 +7,17 @@ void mfunc(vector<primaryKV> &kv, MapReduce<int,int> *mr);
 int main(int argc, char **argv)
 {
 
+
+    int i = 0;
+    char hostname[256];
+    gethostname(hostname, sizeof(hostname));
+    printf("PID %d on %s ready for attach\n", getpid(), hostname);
+    fflush(stdout);
+    while (0 == i)
+        sleep(5);
+
+    cout<<"Attached to gdb and exiting from gdb wait\n";
+
 MapReduce<int,int> mr= MapReduce<int,int>(argc,argv,2);
 mr.map(argc,argv,mfunc);
 //mr.reduce(rfunc);
