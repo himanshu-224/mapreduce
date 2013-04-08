@@ -743,7 +743,7 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 			MPI_Send(strdup(str.c_str()),str.length(),MPI_CHAR,i,KEYVALUE,comm);
 		}
 		len = 0;
-		MPI_Send(&len,1,MPI_INT,i,END_MAP_TASK,comm);
+		MPI_Send(NULL,0,MPI_INT,i,END_MAP_TASK,comm);
 	}
 }
 
@@ -854,6 +854,7 @@ void KeyValue<K,V>::receivekv(int nump)
 	int source;
 	int nkv;
 	char *buffer;
+	string msg;
 	if(nump < 1){
 		string err = "Error: Total number of map process is less than 1. Exiting!!";
 		logobj.error(err);
@@ -870,6 +871,9 @@ void KeyValue<K,V>::receivekv(int nump)
 					err+="Exiting!!";
 					logobj.error(err);
 				}
+				msg = "Received start of keyvalue pair transfer for reducer from rank:" + itos(source);
+				logobj.localLog(msg);
+				msg.clear();
 				procfile[source] = getfilename(this, source);
 				//procfp[source].open(procfile[source].c_str(), ios::out | ios::app | ios::binary);
 				MPI_Recv(&nkv,1,MPI_INT,source,NUM_KEY,comm,&status);
@@ -885,6 +889,9 @@ void KeyValue<K,V>::receivekv(int nump)
 					err = "Receiving data from rank:"+itos(source)+" Could not receive size of data. Exiting!!";
 					logobj.error(err);
 				}
+				msg = "Received keyvalue pair from rank:"+itos(source);
+				logobj.localLog(msg);
+				msg.clear();
 				buffer = (char*)malloc(proclen[source]);
 				MPI_Recv(buffer,proclen[source],MPI_CHAR,source,KEYVALUE,comm,&status);
 				procfp.open(procfile[source].c_str(), ios::out | ios::app | ios::binary);
@@ -902,6 +909,9 @@ void KeyValue<K,V>::receivekv(int nump)
 				}
 				MPI_Recv(NULL,0,MPI_INT,source,END_MAP_TASK,comm,&status);
 				//procfp[source].close();
+				msg = "Received End of map task message from rank:"+itos(source);
+				logobj.localLog(msg);
+				msg.clear();
 				filename.push_back(procfile[source]);
 				procfile[source].clear();
 				break;
@@ -913,6 +923,9 @@ void KeyValue<K,V>::receivekv(int nump)
 					logobj.error(err);
 				}
 				MPI_Recv(NULL,0,MPI_INT,source,END_MAP,comm,&status);
+				msg = "Received end of map phase from rank:"+itos(source);
+				logobj.localLog(msg);
+				msg.clear();
 				nump--;
 				if(nump==0){
 					recvcomp = 1;
@@ -923,6 +936,7 @@ void KeyValue<K,V>::receivekv(int nump)
 			default:
 				string err;
 				err = "Rank:" + itos(source)+ " Message of unknowntag received. Ignoring!!";
+				logobj.localLog(err);
 				usleep(10000);
 				break;
 		}
