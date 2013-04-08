@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <functional>
 #include <iterator>
+#include <err.h>
 
 #include "dataStruc.h"
 #include "logging.h"
@@ -89,6 +90,7 @@ public:
 	{
 		return kvDir;
 	}
+	string getkvstr(ifstream& filep);
 };
 
 //Implementation part
@@ -96,7 +98,7 @@ public:
 string itos(int num);
 vector<string> split(string s, char delim);
 
-string getkvstr(ifstream& filep);
+
 
 template <class K, class V>
 string getfilename(KeyValue<K,V> *,int);
@@ -110,7 +112,8 @@ string getfilename(KeyValue<K,V> *obj, int rank)
 	return filename;
 }
 
-string getkvstr(ifstream& filep)
+template <class K, class V>
+string KeyValue<K,V>::getkvstr(ifstream& filep)
 {
 	string str;
 	char c;
@@ -122,6 +125,10 @@ string getkvstr(ifstream& filep)
 		if (c==':'){
 			bsize = atoi(str.c_str());
 			buffer = (char*)malloc(bsize);
+            if (buffer==NULL)
+            {
+                logobj.error("Failed to allocate "+itos(bsize)+" bytes for buffer to get keyvalue string from file");
+            }
 			filep.read(buffer,bsize);
 			str.clear();
 			str = string(buffer,bsize);
@@ -692,6 +699,8 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 	string str,str2;
 	int len;
 	tempkv.resize(nump);
+    MPI_Request request;
+    int rvalue;
 	if (nump ==1){
 		for(i=0;i<numkey;i++){
 			tempkv[0].push_back(kv.front());
@@ -718,10 +727,18 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 		cout<<"Proc "<<i<<endl;
 		printkv(tempkv[i]);
 	}*/
+    string log;
 	for(i=0;i<nump;i++)
 	{
-		MPI_Send(&tempnkv[i],1,MPI_INT,i,NUM_KEY,comm);
-		str.clear();
+        if(tempnkv[i] == 0)
+            continue;
+        log = "Sending signal to START keyvalue transfer to process:"+itos(i);
+        logobj.localLog(log);
+        log.clear();
+		rvalue=MPI_Isend(&tempnkv[i],1,MPI_INT,i,NUM_KEY,comm,&request);
+		if (rvalue!=0)
+            logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
+        str.clear();
 		for(j=0;j<tempnkv[i];j++)
 		{
 			str2=encodekv(tempkv[i].front());
@@ -730,8 +747,15 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 			{
 				char *buffer = strdup(str.c_str());
 				len = str.length();
-				MPI_Send(&len,1,MPI_INT,i,SIZE_NXTMSG,comm);
-				MPI_Send(buffer,str.length(),MPI_CHAR,i,KEYVALUE,comm);
+				rvalue=MPI_Isend(&len,1,MPI_INT,i,SIZE_NXTMSG,comm,&request);
+                if (rvalue!=0)
+                    logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
+				log = "Sending keyvalue pair to process:"+itos(i);
+                logobj.localLog(log);
+                log.clear();
+                rvalue=MPI_Isend(buffer,str.length(),MPI_CHAR,i,KEYVALUE,comm,&request);
+                if (rvalue!=0)
+                    logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 				str.clear();
 			}
 			str+=str2;
@@ -739,11 +763,23 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 		if(!str.empty())
 		{
 			len = str.length();
-			MPI_Send(&len,1,MPI_INT,i,SIZE_NXTMSG,comm);
-			MPI_Send(strdup(str.c_str()),str.length(),MPI_CHAR,i,KEYVALUE,comm);
+			rvalue=MPI_Isend(&len,1,MPI_INT,i,SIZE_NXTMSG,comm,&request);
+            if (rvalue!=0)
+                logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
+			log = "Sending keyvalue pair to process:"+itos(i);
+            logobj.localLog(log);
+            log.clear();
+            rvalue=MPI_Isend(strdup(str.c_str()),str.length(),MPI_CHAR,i,KEYVALUE,comm,&request);
+            if (rvalue!=0)
+                logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 		}
 		len = 0;
-		MPI_Send(NULL,0,MPI_INT,i,END_MAP_TASK,comm);
+        log = "Sending signal for END of maptask to process:"+itos(i);
+        logobj.localLog(log);
+        log.clear();
+		rvalue=MPI_Isend(NULL,0,MPI_INT,i,END_MAP_TASK,comm,&request);
+        if (rvalue!=0)
+            logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 	}
 }
 
@@ -783,8 +819,14 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey)
 		cout<<"Proc "<<i<<endl;
 		printkv(tempkv[i]);
 	}*/
+    string log;
 	for(i=0;i<nump;i++)
 	{
+        if(tempnkv[i] == 0)
+            continue;
+        log = "Sending signal to START keyvalue transfer to process:"+itos(i);
+        logobj.localLog(log);
+        log.clear();
 		MPI_Send(&tempnkv[i],1,MPI_INT,i,NUM_KEY,comm);
 		str.clear();
 		for(j=0;j<tempnkv[i];j++)
@@ -796,6 +838,9 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey)
 				char *buffer = strdup(str.c_str());
 				len = str.length();
 				MPI_Send(&len,1,MPI_INT,i,SIZE_NXTMSG,comm);
+                log = "Sending keyvalue pair to process:"+itos(i);
+                logobj.localLog(log);
+                log.clear();
 				MPI_Send(buffer,str.length(),MPI_CHAR,i,KEYVALUE,comm);
 				str.clear();
 			}
@@ -805,6 +850,9 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey)
 		{
 			len = str.length();
 			MPI_Send(&len,1,MPI_INT,i,SIZE_NXTMSG,comm);
+            log = "Sending keyvalue pair to process:"+itos(i);
+            logobj.localLog(log);
+            log.clear();
 			MPI_Send(strdup(str.c_str()),str.length(),MPI_CHAR,i,KEYVALUE,comm);
 		}
 		len = 0;
@@ -852,17 +900,21 @@ void KeyValue<K,V>::receivekv(int nump)
 	//procfp.resize(nump);
 	MPI_Status status;
 	int source;
-	int nkv;
+	int nkv,rvalue;
 	char *buffer;
 	string msg;
 	if(nump < 1){
 		string err = "Error: Total number of map process is less than 1. Exiting!!";
 		logobj.error(err);
 	}
+	logobj.localLog("Variables defined in receivekv");
 	while(1)
 	{
-		MPI_Probe(MPI_ANY_SOURCE,MPI_ANY_TAG,comm,&status);
+		rvalue = MPI_Probe(MPI_ANY_SOURCE,MPI_ANY_TAG,comm,&status);
+       // if (rvalue!=0)
+            logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 		source = status.MPI_SOURCE;
+        logobj.localLog("Some message received");
 		switch(status.MPI_TAG)
 		{
 			case NUM_KEY:
@@ -876,11 +928,18 @@ void KeyValue<K,V>::receivekv(int nump)
 				msg.clear();
 				procfile[source] = getfilename(this, source);
 				//procfp[source].open(procfile[source].c_str(), ios::out | ios::app | ios::binary);
-				MPI_Recv(&nkv,1,MPI_INT,source,NUM_KEY,comm,&status);
+				rvalue = MPI_Recv(&nkv,1,MPI_INT,source,NUM_KEY,comm,&status);
+                if (rvalue!=0)
+                    logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 				break;
 			
 			case SIZE_NXTMSG:
-				MPI_Recv(&proclen[source],1,MPI_INT,source,SIZE_NXTMSG,comm,&status);
+				rvalue = MPI_Recv(&proclen[source],1,MPI_INT,source,SIZE_NXTMSG,comm,&status);
+                if (rvalue!=0)
+                    logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
+                msg = "Received SIZE of keyvalue pair from rank:"+itos(source);
+                logobj.localLog(msg);
+                msg.clear();
 				break;
 				
 			case KEYVALUE:
@@ -893,7 +952,13 @@ void KeyValue<K,V>::receivekv(int nump)
 				logobj.localLog(msg);
 				msg.clear();
 				buffer = (char*)malloc(proclen[source]);
-				MPI_Recv(buffer,proclen[source],MPI_CHAR,source,KEYVALUE,comm,&status);
+                if (buffer==NULL)
+                {
+                    logobj.error("Failed to allocate "+itos(proclen[source])+" bytes for buffer to get keyvalue string from file");
+                }
+				rvalue = MPI_Recv(buffer,proclen[source],MPI_CHAR,source,KEYVALUE,comm,&status);
+                if (rvalue!=0)
+                    logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 				procfp.open(procfile[source].c_str(), ios::out | ios::app | ios::binary);
 				procfp.write(buffer,proclen[source]);
 				procfp.close();
@@ -907,7 +972,9 @@ void KeyValue<K,V>::receivekv(int nump)
 					err = "Rank:"+itos(source)+" Could not receive some key value pair. Exiting!!";
 					logobj.error(err);
 				}
-				MPI_Recv(NULL,0,MPI_INT,source,END_MAP_TASK,comm,&status);
+				rvalue=MPI_Recv(NULL,0,MPI_INT,source,END_MAP_TASK,comm,&status);
+                if (rvalue!=0)
+                    logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 				//procfp[source].close();
 				msg = "Received End of map task message from rank:"+itos(source);
 				logobj.localLog(msg);
@@ -922,12 +989,15 @@ void KeyValue<K,V>::receivekv(int nump)
 					err+=" Received end of mapping part message. Exiting!!";
 					logobj.error(err);
 				}
-				MPI_Recv(NULL,0,MPI_INT,source,END_MAP,comm,&status);
-				msg = "Received end of map phase from rank:"+itos(source);
-				logobj.localLog(msg);
-				msg.clear();
+				rvalue = MPI_Recv(NULL,0,MPI_INT,source,END_MAP,comm,&status);
+                if (rvalue!=0)
+                    logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 				nump--;
-				if(nump==0){
+				msg = "Received end of map phase from rank:"+itos(source);
+                msg+="\nNumber of process left is "+itos(nump);
+                logobj.localLog(msg);
+                msg.clear();
+                if(nump==0){
 					recvcomp = 1;
 					return;
 				}
@@ -936,7 +1006,7 @@ void KeyValue<K,V>::receivekv(int nump)
 			default:
 				string err;
 				err = "Rank:" + itos(source)+ " Message of unknowntag received. Ignoring!!";
-				logobj.localLog(err);
+				logobj.warning(err);
 				usleep(10000);
 				break;
 		}

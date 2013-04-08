@@ -15,8 +15,11 @@ Logging::Logging()
 Logging::Logging(string baseDir, int rnk, int dbg)
 {
     rank=rnk;
-    debug=debug;
+    debug=dbg;
     logfilepath=baseDir+string("logfile_")+itos(rank)+".txt";
+    ofstream logfile;
+    logfile.open(logfilepath.c_str(),ios::out);    
+    logfile.close();    
 }
 Logging::~Logging()
 {

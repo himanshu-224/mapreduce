@@ -7,7 +7,7 @@ void mfunc(vector<primaryKV> &kv, MapReduce<int,int> *mr);
 int main(int argc, char **argv)
 {
 
-MapReduce<int,int> mr= MapReduce<int,int>(argc,argv,8);
+MapReduce<int,int> mr= MapReduce<int,int>(argc,argv,2);
 mr.map(argc,argv,mfunc);
 //mr.reduce(rfunc);
 /*KeyValue<int,int> kv = KeyValue<int,int>();
@@ -22,10 +22,10 @@ return 0;
 
 void mfunc(vector<primaryKV> &kv, MapReduce<int,int> *mr)
 {
-    for(int i=1;i<=10;i++)
+   /* for(int i=1;i<=10;i++)
     {
         mr->addkv(i,1);
-    }
+    }*/
 }
 
 void rfunc(MapReduce<int,int> *mr)

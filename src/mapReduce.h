@@ -323,6 +323,7 @@ void ReducerSort(MapReduce<K,V> *mr)
 template <class K,class V>
 void MapReduce<K,V>::reduceReceive()
 {
+    logobj.localLog("Start of Receiver thread");
     kv->receivekv(this->nprocs);
 }
 
@@ -386,6 +387,7 @@ MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
     
     mkdir(logDir.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH); //created directory for logs
     logobj=Logging(logDir,rank,debug);
+    logobj.localLog("###Start of program####");
     
     parseArguments(argc,argv);
     kv=new KeyValue<K,V>(comm,logobj,kvDir);
@@ -809,12 +811,12 @@ vector<primaryKV> MapReduce<K,V>::createChunk(int front)
         }
         
         //logobj.localLog("\tSize of chunk "+itos(chunks[front].number)+ " required, part "+itos(i+1)+" = "+itos(length));
-        logobj.localLog("\tSize of chunk "+itos(chunks[front].number)+ " created, part "+itos(i+1)+" = "+itos((int)pkv.value.length()));        
+        //logobj.localLog("\tSize of chunk "+itos(chunks[front].number)+ " created, part "+itos(i+1)+" = "+itos((int)pkv.value.length()));        
         //logobj.localLog("\tSize of chunk "+itos(chunks[front].number)+ " read, part "+itos(i+1)+" = "+itos(fin.gcount()));
         fin.close();
     }    
-    logobj.localLog("Size of chunk "+itos(chunks[front].number)+ " required  = "+itos(chunks[front].size));
-    logobj.localLog("Size of chunk "+itos(chunks[front].number)+ " created  = "+itos(crsize));
+    //logobj.localLog("Size of chunk "+itos(chunks[front].number)+ " required  = "+itos(chunks[front].size));
+    //logobj.localLog("Size of chunk "+itos(chunks[front].number)+ " created  = "+itos(crsize));
     return chunk;
 }
 
@@ -952,6 +954,7 @@ int defaulthash(K key, int nump)
 template <class K,class V>
 int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&, MapReduce<K,V> *), int(*hashfunc)(K key, int nump) = defaulthash<K>)
 {
+    MPI_Request request;
     parseArguments(argc,argv);
     if (rank==0)
     {   
@@ -962,14 +965,15 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
     if (rank<numReducers)
     {
         t2 = thread(ReducerReceive<K,V>,this);
-        t3=thread(ReducerSort<K,V>,this);
+        //t3=thread(ReducerSort<K,V>,this);
     }
     MPI_Barrier(comm);  
-    
+    logobj.localLog("###Start of map phase###");
     sendRankMapping();
     thread t1=thread(threadFunc1<K,V>,this);
     
     int totalChunks=chunks.size();
+    string log;
     logobj.localLog("Total Chunks "+itos(totalChunks));
     while(chunksCompleted!=totalChunks)
     {
@@ -979,9 +983,12 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
             vector<primaryKV> chunk=createChunk(front);
             chunksObtained.pop();
             chunksCompleted++;
+            log = "Start of map task for chunk no:" +itos(chunksCompleted);
+            logobj.localLog(log);
+            log.clear();
             /*Insert Map Code Here*/
             mapfunc(chunk,this);
-            finalisemap(hashfunc);
+            //finalisemap(hashfunc);
             /*Insert map Code here*/
         }
         else
@@ -991,14 +998,20 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
     }  
     t1.join();
     // Send message that all map task have finished
+    logobj.localLog("End of user map phase");
     for(int i =0; i< numReducers; i++)
     {
-	MPI_Send(NULL,0,MPI_INT,i,END_MAP,comm);
+        int rvalue = MPI_Isend(NULL,0,MPI_INT,i,END_MAP,comm,&request);
+        logobj.localLog("Send signal for end of map phase to rank:"+itos(i));
+        if (rvalue==-1)
+            logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
     }
    if (rank<numReducers){
        t2.join();
-       t3.join();
+       //t3.join();
    }
+   MPI_Barrier(comm);
+    logobj.localLog("End of MAP PHASE");
     return 1;
 }
 
@@ -1022,6 +1035,8 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<string>,  Ma
     }
     MPI_Barrier(comm);  
     
+    logobj.localLog("Start of map phase");
+    string log;
     sendRankMapping();
     thread t1=thread(threadFunc1<K,V>,this);
     
@@ -1046,6 +1061,9 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<string>,  Ma
                 else
                     pathList.push_back(fileList[i].localpath);
             }
+            log = "Start of map task for chunk no:" +itos(chunksCompleted);
+            logobj.localLog(log);
+            log.clear();
             mapfunc(pathList,this);
             finalisemap(hashfunc);
             /*Insert map Code here*/
@@ -1056,6 +1074,7 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<string>,  Ma
         }
     }  
     t1.join();
+    logobj.localLog("End of MAP PHASE");
     for(int i =0; i< numReducers; i++)
     {
 	MPI_Send(NULL,0,MPI_INT,i,END_MAP,comm);
@@ -1083,8 +1102,11 @@ int MapReduce<K,V>::map(void(*mapfunc)(int nprocs, int rank,  MapReduce<K,V> *),
     }
     MPI_Barrier(comm);
     
+    logobj.localLog("Start of map phase");
+    string log;
     mapfunc(nprocs, rank, this);
     finalisemap(hashfunc);
+    logobj.localLog("End of MAP PHASE");
     for(int i =0; i< numReducers; i++)
     {
 	MPI_Send(NULL,0,MPI_INT,i,END_MAP,comm);
@@ -1094,7 +1116,9 @@ int MapReduce<K,V>::map(void(*mapfunc)(int nprocs, int rank,  MapReduce<K,V> *),
         t3.join();
     }
     
-    return 1;
+    return 1;log = "Start of map task for chunk no:" +itos(chunksCompleted);
+            logobj.localLog(log);
+            log.clear();
 }
 
 /*For the case when data is not read from the disk but is generated centrally, i.e. by rank 0. The generated 
@@ -1113,6 +1137,8 @@ int MapReduce<K,V>::map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primar
         t3=thread(ReducerSort<K,V>,this);
     }
     MPI_Barrier(comm);
+    logobj.localLog("Start of map phase");
+    string log;
     if (rank==0)
     {
         thread t1=thread(genfunc,buffer,completed);
