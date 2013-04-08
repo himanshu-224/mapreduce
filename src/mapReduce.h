@@ -112,8 +112,8 @@ bool empty();
 void reRead();
 
 void raddkv(K,V);
-void finalKV();
-void rFinalKV();
+void finalKV(void(*outfunc)(KValue<K,V> k)); //for non-rank0 reducers
+void rFinalKV(void(*outfunc)(KValue<K,V> k)); // for rank 0 reducer
 void readAndAppend(char*);
 };
 
@@ -1402,7 +1402,7 @@ void MapReduce<K,V>::raddkv(K key,V value)
     finalQueue.push(k);
 }
 template <class K,class V>
-void MapReduce<K,V>::finalKV()
+void MapReduce<K,V>::finalKV(void(*outfunc)(KValue<K,V> k))
 {   
     string str="";
     int send_limit = 1024*1024;
@@ -1414,7 +1414,7 @@ void MapReduce<K,V>::finalKV()
     {
         if(!finalQueue.empty())
         {
-            str+=outputFormat(finalQueue.front());
+            str+=outfunc(finalQueue.front());
             finalQueue.pop();
         }
         else
@@ -1449,15 +1449,15 @@ void MapReduce<K,V>::finalKV()
     MPI_Send(filename,length,MPI_CHAR,0,FILE_PATH,comm);
 }
 template <class K,class V>
-void sendFinalKV(MapReduce<K,V>* mr)
+void sendFinalKV(MapReduce<K,V>* mr, void(*outfunc)(KValue<K,V> k))
 {
-    mr->finalKV();
+    mr->finalKV(outfunc);
 }
 
 template <class K,class V>
-void receiveFinalKV(MapReduce<K,V>* mr)
+void receiveFinalKV(MapReduce<K,V>* mr, void(*outfunc)(KValue<K,V> k))
 {
-    mr->finalKV();
+    mr->rFinalKV(outfunc);
 }
 
 template <class K,class V>
@@ -1468,7 +1468,7 @@ string outputFormat(KValue<K,V> k)
 }
 
 template <class K,class V>
-void MapReduce<K,V>::rFinalKV()
+void MapReduce<K,V>::rFinalKV(void(*outfunc)(KValue<K,V> k))
 {
     string str="";
     int send_limit = 1024*1024;
@@ -1479,7 +1479,7 @@ void MapReduce<K,V>::rFinalKV()
     {
         if(!finalQueue.empty())
         {
-            str+=outputFormat(finalQueue.front());
+            str+=outfunc(finalQueue.front());
             finalQueue.pop();
         }
         else
@@ -1550,19 +1550,18 @@ void MapReduce<K,V>::readAndAppend(char *buffer)
     fout.close();
 }
 
-
 template <class K,class V>
-int MapReduce<K,V>::reduce(void(*reducefunc)(MapReduce<K,V>*), void(*outfunc)(KValue<K,V> k)= outputFormat)
+int MapReduce<K,V>::reduce(void(*reducefunc)(MapReduce<K,V>*), void(*outfunc)(KValue<K,V> k) = outputFormat)
 {
     thread t4;
     thread t5;
     if (rank<numReducers && rank!=0)
     {
-        t4 = thread(sendFinalKV<K,V>,this);
+        t4 = thread(sendFinalKV<K,V>,this,outfunc);
     }    
     else if (rank==0)
     {
-        t5 = thread(receiveFinalKV<K,V>,this);
+        t5 = thread(receiveFinalKV<K,V>,this,outfunc);
     }
     if (rank<numReducers)
     {
