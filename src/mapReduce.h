@@ -240,7 +240,7 @@ void MapReduce<K,V>::readDefaults(string configFile)
 template <class K,class V>
 void MapReduce<K,V>::sendDefaults()
 {
-    int n=6;
+    int n=7;
     int arr[n];
     string globalchunkMapFile;
     
@@ -262,13 +262,14 @@ void MapReduce<K,V>::sendDefaults()
     arr[3]=itos(chunkSize).length();
     arr[4]=itos(isCluster).length();
     arr[5]=logDir.length();
+    arr[6]=kvDir.length();
     
-    string str = homedir+globalchunkMapFile+mntDir+itos(chunkSize)+itos(isCluster)+logDir;
+    string str = homedir+globalchunkMapFile+mntDir+itos(chunkSize)+itos(isCluster)+logDir+kvDir;
     char *buffer = strdup(str.c_str());
     
     for(int i=1;i<nprocs;i++){
-        MPI_Send(arr,n,MPI_INT,i,0,comm);    
-        MPI_Send(buffer,str.length(),MPI_CHAR,i,0,comm);
+        MPI_Send(arr,n,MPI_INT,i,20,comm);    
+        MPI_Send(buffer,str.length(),MPI_CHAR,i,20,comm);
     }
 }
 
@@ -276,16 +277,16 @@ template <class K,class V>
 void MapReduce<K,V>::receiveDefaults()
 {
     MPI_Status status;
-    int n=6,length=0,curpos=0;
+    int n=7,length=0,curpos=0;
     int arr[n];
-    MPI_Recv(arr,n,MPI_INT,0,0,comm,&status);
+    MPI_Recv(arr,n,MPI_INT,0,20,comm,&status);
     
     for(int i=0;i<n;i++)
         length+=arr[i];
     
     char* buffer= new char[length];
     
-    MPI_Recv(buffer,length,MPI_CHAR,0,0,comm,&status);
+    MPI_Recv(buffer,length,MPI_CHAR,0,20,comm,&status);
     string str(buffer);
     
     homedir=str.substr(curpos,arr[0]);
@@ -299,6 +300,8 @@ void MapReduce<K,V>::receiveDefaults()
     isCluster=atoi(str.substr(curpos,arr[4]).c_str());
     curpos+=arr[4];
     logDir=str.substr(curpos,arr[5]);
+    curpos+=arr[5];
+    kvDir=str.substr(curpos,arr[6]);
 }
 
 template <class K,class V>
@@ -988,7 +991,7 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
             log.clear();
             /*Insert Map Code Here*/
             mapfunc(chunk,this);
-            //finalisemap(hashfunc);
+            finalisemap(hashfunc);
             /*Insert map Code here*/
         }
         else
@@ -1001,7 +1004,7 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
     logobj.localLog("End of user map phase");
     for(int i =0; i< numReducers; i++)
     {
-        int rvalue = MPI_Isend(NULL,0,MPI_INT,i,END_MAP,comm,&request);
+        int rvalue = MPI_Send(NULL,0,MPI_INT,i,END_MAP,comm);
         logobj.localLog("Send signal for end of map phase to rank:"+itos(i));
         if (rvalue==-1)
             logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");

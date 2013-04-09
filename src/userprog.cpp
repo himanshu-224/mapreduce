@@ -1,6 +1,8 @@
 #include<iostream>
 #include "mapReduce.h"
 #include "keyValue.h"
+#include <time.h>
+#include <stdlib.h>
 
 void mfunc(vector<primaryKV> &kv, MapReduce<int,int> *mr);
 
@@ -8,7 +10,7 @@ int main(int argc, char **argv)
 {
 
 
-    int i = 0;
+    /*int i = 0;
     char hostname[256];
     gethostname(hostname, sizeof(hostname));
     printf("PID %d on %s ready for attach\n", getpid(), hostname);
@@ -16,7 +18,7 @@ int main(int argc, char **argv)
     while (0 == i)
         sleep(5);
 
-    cout<<"Attached to gdb and exiting from gdb wait\n";
+    cout<<"Attached to gdb and exiting from gdb wait\n";*/
 
 MapReduce<int,int> mr= MapReduce<int,int>(argc,argv,2);
 mr.map(argc,argv,mfunc);
@@ -33,10 +35,13 @@ return 0;
 
 void mfunc(vector<primaryKV> &kv, MapReduce<int,int> *mr)
 {
-   /* for(int i=1;i<=10;i++)
+	int temp,v=1024*256;
+	srand(time(NULL));
+    for(int i=1;i<=10;i++)
     {
-        mr->addkv(i,1);
-    }*/
+	    temp = rand()%v+i;
+        mr->addkv(temp,1);
+    }
 }
 
 void rfunc(MapReduce<int,int> *mr)

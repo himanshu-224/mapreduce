@@ -91,6 +91,10 @@ public:
 		return kvDir;
 	}
 	string getkvstr(ifstream& filep);
+	int getrank()
+	{
+		return me;
+	}
 };
 
 //Implementation part
@@ -104,11 +108,12 @@ template <class K, class V>
 string getfilename(KeyValue<K,V> *,int);
 
 template <class K, class V>
-string getfilename(KeyValue<K,V> *obj, int rank)
+string getfilename(KeyValue<K,V> *obj,int rank)
 {
 	string filename;
 	int curtime = time(NULL);
-	filename = obj->getkvDir() + "kv_" + itos(rank) + "." + itos(curtime);
+	filename = obj->getkvDir() + "kv_" + itos(obj->getrank())+"_"+itos(rank) + "." + itos(curtime);
+	cout<<"Rank:"<<obj->getrank()<<"\t"<<obj->getkvDir()<<endl;
 	return filename;
 }
 
@@ -735,7 +740,7 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
         log = "Sending signal to START keyvalue transfer to process:"+itos(i);
         logobj.localLog(log);
         log.clear();
-		rvalue=MPI_Isend(&tempnkv[i],1,MPI_INT,i,NUM_KEY,comm,&request);
+		rvalue=MPI_Send(&tempnkv[i],1,MPI_INT,i,NUM_KEY,comm);
 		if (rvalue!=0)
             logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
         str.clear();
@@ -747,13 +752,13 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 			{
 				char *buffer = strdup(str.c_str());
 				len = str.length();
-				rvalue=MPI_Isend(&len,1,MPI_INT,i,SIZE_NXTMSG,comm,&request);
+				rvalue=MPI_Send(&len,1,MPI_INT,i,SIZE_NXTMSG,comm);
                 if (rvalue!=0)
                     logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 				log = "Sending keyvalue pair to process:"+itos(i);
                 logobj.localLog(log);
                 log.clear();
-                rvalue=MPI_Isend(buffer,str.length(),MPI_CHAR,i,KEYVALUE,comm,&request);
+                rvalue=MPI_Send(buffer,str.length(),MPI_CHAR,i,KEYVALUE,comm);
                 if (rvalue!=0)
                     logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 				str.clear();
@@ -763,13 +768,13 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 		if(!str.empty())
 		{
 			len = str.length();
-			rvalue=MPI_Isend(&len,1,MPI_INT,i,SIZE_NXTMSG,comm,&request);
+			rvalue=MPI_Send(&len,1,MPI_INT,i,SIZE_NXTMSG,comm);
             if (rvalue!=0)
                 logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 			log = "Sending keyvalue pair to process:"+itos(i);
             logobj.localLog(log);
             log.clear();
-            rvalue=MPI_Isend(strdup(str.c_str()),str.length(),MPI_CHAR,i,KEYVALUE,comm,&request);
+            rvalue=MPI_Send(strdup(str.c_str()),str.length(),MPI_CHAR,i,KEYVALUE,comm);
             if (rvalue!=0)
                 logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 		}
@@ -777,7 +782,7 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
         log = "Sending signal for END of maptask to process:"+itos(i);
         logobj.localLog(log);
         log.clear();
-		rvalue=MPI_Isend(NULL,0,MPI_INT,i,END_MAP_TASK,comm,&request);
+		rvalue=MPI_Send(NULL,0,MPI_INT,i,END_MAP_TASK,comm);
         if (rvalue!=0)
             logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 	}
@@ -899,7 +904,7 @@ void KeyValue<K,V>::receivekv(int nump)
 	vector<int> proclen(nump,-1);
 	//procfp.resize(nump);
 	MPI_Status status;
-	int source;
+	int source,flag;
 	int nkv,rvalue;
 	char *buffer;
 	string msg;
@@ -910,11 +915,15 @@ void KeyValue<K,V>::receivekv(int nump)
 	logobj.localLog("Variables defined in receivekv");
 	while(1)
 	{
-		rvalue = MPI_Probe(MPI_ANY_SOURCE,MPI_ANY_TAG,comm,&status);
-       // if (rvalue!=0)
-            logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
+		rvalue = MPI_Iprobe(MPI_ANY_SOURCE,MPI_ANY_TAG,comm,&flag,&status);
+		if (rvalue!=0)
+			logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 		source = status.MPI_SOURCE;
-        logobj.localLog("Some message received");
+		if (!flag){
+			usleep(1000);
+			continue;
+		}
+		logobj.localLog("Some message received");
 		switch(status.MPI_TAG)
 		{
 			case NUM_KEY:
