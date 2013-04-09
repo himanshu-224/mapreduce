@@ -439,7 +439,7 @@ MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
 
         }
     }
-   
+   MPI_Barrier(comm);
 }
 
 /*MapReduce::MapReduce(MPI_Comm communicator,int argc, char** argv)
@@ -963,6 +963,9 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
     {   
         getChunks();    
     }
+    
+    sendRankMapping();
+    
     thread t2;
     thread t3;
     if (rank<numReducers)
@@ -972,7 +975,6 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
     }
     MPI_Barrier(comm);  
     logobj.localLog("###Start of map phase###");
-    sendRankMapping();
     thread t1=thread(threadFunc1<K,V>,this);
     
     int totalChunks=chunks.size();

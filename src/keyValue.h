@@ -113,7 +113,7 @@ string getfilename(KeyValue<K,V> *obj,int rank)
 	string filename;
 	int curtime = time(NULL);
 	filename = obj->getkvDir() + "kv_" + itos(obj->getrank())+"_"+itos(rank) + "." + itos(curtime);
-	cout<<"Rank:"<<obj->getrank()<<"\t"<<obj->getkvDir()<<endl;
+	//cout<<"Rank:"<<obj->getrank()<<"\t"<<obj->getkvDir()<<endl;
 	return filename;
 }
 
