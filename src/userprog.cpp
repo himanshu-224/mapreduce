@@ -10,12 +10,12 @@ int main(int argc, char **argv)
 {
 
 
-    /*int i = 0;
+    int i = 0;
     char hostname[256];
     gethostname(hostname, sizeof(hostname));
     printf("PID %d on %s ready for attach\n", getpid(), hostname);
     fflush(stdout);
-    while (0 == i)
+    /*while (0 == i)
         sleep(5);
 
     cout<<"Attached to gdb and exiting from gdb wait\n";*/
@@ -38,7 +38,7 @@ void mfunc(vector<primaryKV> &kv, MapReduce<int,int> *mr)
 {
 	int temp,v=1024*256;
 	srand(time(NULL));
-    for(int i=1;i<=10;i++)
+    for(int i=1;i<=1000;i++)
     {
 	    temp = rand()%v+i;
         mr->addkv(temp,1);

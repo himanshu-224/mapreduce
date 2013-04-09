@@ -227,7 +227,7 @@ KeyValue<K,V>::KeyValue(MPI_Comm communicator, Logging &log_caller, string kvDir
 	}*/
 	nkv = 0;
 	setType();
-	
+	recvcomp=0;
 	//sprintf(filename,"/export/mapReduce/keyValue/kv.%d",curtime);
 	//fileflag = 0;
 	//fp=NULL;
@@ -772,6 +772,8 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 		printkv(tempkv[i]);
 	}*/
     string log;
+	int flag;
+	MPI_Status status;
 	for(i=0;i<nump;i++)
 	{
         if(tempnkv[i] == 0)
@@ -779,7 +781,17 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
         log = "Sending signal to START keyvalue transfer to process:"+itos(i);
         logobj.localLog(log);
         log.clear();
-		rvalue=MPI_Send(&tempnkv[i],1,MPI_INT,i,NUM_KEY,comm);
+		rvalue=MPI_Issend(&tempnkv[i],1,MPI_INT,i,NUM_KEY,comm,&request);
+		while(1)
+		{
+			MPI_Test(&request,&flag,&status);	
+			if (!flag)
+			{
+				usleep(100);
+			}
+			else
+				break;
+		}
 		if (rvalue!=0)
             logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
         str.clear();
@@ -791,13 +803,33 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 			{
 				char *buffer = strdup(str.c_str());
 				len = str.length();
-				rvalue=MPI_Send(&len,1,MPI_INT,i,SIZE_NXTMSG,comm);
+				rvalue=MPI_Issend(&len,1,MPI_INT,i,SIZE_NXTMSG,comm,&request);
+				while(1)
+				{
+					MPI_Test(&request,&flag,&status);	
+					if (!flag)
+					{
+						usleep(100);
+					}
+					else
+					break;
+				}
                 if (rvalue!=0)
                     logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 				log = "Sending keyvalue pair to process:"+itos(i);
                 logobj.localLog(log);
                 log.clear();
-                rvalue=MPI_Send(buffer,str.length(),MPI_CHAR,i,KEYVALUE,comm);
+                rvalue=MPI_Issend(buffer,str.length(),MPI_CHAR,i,KEYVALUE,comm,&request);
+				while(1)
+				{
+					MPI_Test(&request,&flag,&status);	
+					if (!flag)
+					{
+						usleep(100);
+					}
+					else
+					break;
+				}
                 if (rvalue!=0)
                     logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 				str.clear();
@@ -807,13 +839,33 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 		if(!str.empty())
 		{
 			len = str.length();
-			rvalue=MPI_Send(&len,1,MPI_INT,i,SIZE_NXTMSG,comm);
+			rvalue=MPI_Issend(&len,1,MPI_INT,i,SIZE_NXTMSG,comm,&request);
+			while(1)
+			{
+				MPI_Test(&request,&flag,&status);	
+				if (!flag)
+				{
+					usleep(100);
+				}
+				else
+				break;
+			}
             if (rvalue!=0)
                 logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 			log = "Sending keyvalue pair to process:"+itos(i);
             logobj.localLog(log);
             log.clear();
-            rvalue=MPI_Send(strdup(str.c_str()),str.length(),MPI_CHAR,i,KEYVALUE,comm);
+            rvalue=MPI_Issend(strdup(str.c_str()),str.length(),MPI_CHAR,i,KEYVALUE,comm,&request);
+			while(1)
+			{
+				MPI_Test(&request,&flag,&status);	
+				if (!flag)
+				{
+					usleep(100);
+				}
+				else
+				break;
+			}
             if (rvalue!=0)
                 logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 		}
@@ -821,7 +873,17 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
         log = "Sending signal for END of maptask to process:"+itos(i);
         logobj.localLog(log);
         log.clear();
-		rvalue=MPI_Send(NULL,0,MPI_INT,i,END_MAP_TASK,comm);
+		rvalue=MPI_Issend(NULL,0,MPI_INT,i,END_MAP_TASK,comm,&request);
+		while(1)
+		{
+			MPI_Test(&request,&flag,&status);	
+			if (!flag)
+			{
+				usleep(100);
+			}
+			else
+			break;
+		}
         if (rvalue!=0)
             logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 	}
@@ -962,7 +1024,7 @@ void KeyValue<K,V>::receivekv(int nump)
 			logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 		source = status.MPI_SOURCE;
 		if (!flag){
-			usleep(1000);
+			usleep(100);
 			continue;
 		}
 		logobj.localLog("Some message received");
@@ -982,7 +1044,7 @@ void KeyValue<K,V>::receivekv(int nump)
 				rvalue = MPI_Recv(&nkv,1,MPI_INT,source,NUM_KEY,comm,&status);
 				if (rvalue!=0)
 					logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
-				procfp.open(procfile[source].c_str(), ios::out | ios::app | ios::binary);
+				procfp.open(procfile[source].c_str(), ios::out | ios::binary);
 				strnkv = ""+itos(nkv)+"\n";
 				procfp.write(strdup(strnkv.c_str()),strnkv.length());
 				procfp.close();
@@ -1063,7 +1125,7 @@ void KeyValue<K,V>::receivekv(int nump)
 				string err;
 				err = "Rank:" + itos(source)+ " Message of unknowntag received. Ignoring!!";
 				logobj.warning(err);
-				usleep(1000);
+				usleep(100);
 				break;
 		}
 	}
@@ -1089,7 +1151,7 @@ void KeyValue<K,V>::sortfiles()
 	logobj.localLog("\tVariables defined for sortfile part");
 	while(1){
 		if((filename.size() < NUM_SFILE) && (recvcomp == 0)){
-			usleep(1000);
+			usleep(100);
 			continue;
 		}
 		numfiles = min((int)filename.size(),NUM_SFILE);
@@ -1120,7 +1182,7 @@ void KeyValue<K,V>::sortfiles()
 		logobj.localLog("\tRead atleast 1 keyvalue from each file");
 		buffer.clear();
 		buffer = ""+itos(tnkv)+"\n";
-		newfilep.open(newfile.c_str(), ios::out | ios::app | ios::binary);
+		newfilep.open(newfile.c_str(), ios::out | ios::binary);
 		newfilep.write(strdup(buffer.c_str()),buffer.length());
 		newfilep.close();
 		while(1){

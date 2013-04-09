@@ -1,11 +1,10 @@
 
-
-MPICC=/usr/bin/mpic++
-MPIRUN=/usr/bin/mpirun
+MPICC=/opt/mpich2/gnu/bin/mpic++
+MPIRUN=/opt/mpich2/gnu/bin/mpirun
 
 userprog: src/userprog.cpp src/mapReduce.h src/keyValue.h src/objs/chunkCreation.o src/objs/pugixml.o src/dataStruc.h src/objs/logging.o 
 	$(MPICC) -g -std=c++0x -pthread -c src/userprog.cpp -o src/objs/userprog.o
-	$(MPICC) -g -std=c++0x -pthread -o mapreduce src/objs/userprog.o src/mapReduce.h src/objs/chunkCreation.o src/objs/pugixml.o src/dataStruc.h src/objs/logging.o src/keyValue.h
+	$(MPICC) -g -std=c++0x -pthread -o mapreduce1 src/objs/userprog.o src/mapReduce.h src/objs/chunkCreation.o src/objs/pugixml.o src/dataStruc.h src/objs/logging.o src/keyValue.h
 
 runprog: 
     $(MPIRUN) -g -np 8 ./mapreduce dirfile=dirList.txt type=binary

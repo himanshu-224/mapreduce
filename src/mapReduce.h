@@ -419,7 +419,7 @@ MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
         logobj.localLog("Created keyValue directory : "+kvDir);
     }
     
-    if (rank==0)  /*Mount all directories except its own in READONLY mode*/
+    if (rank==0)  /*Mount all directories including its own in READONLY mode*/
     {
         mkdir(mntDir.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
         logobj.localLog("Created mount directory : "+mntDir);
@@ -428,8 +428,10 @@ MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
         string singleip;
         ifstream fin (ipListFile.c_str());
         fin>>singleip;
+
+		cout<<singleip<<endl;
         fin.close(); 
-        iplist.erase(remove(iplist.begin(), iplist.end(), singleip), iplist.end());
+        //iplist.erase(remove(iplist.begin(), iplist.end(), singleip), iplist.end());
         
         for (vector<string>::iterator it=iplist.begin(); it!=iplist.end();++it)
         {
@@ -453,11 +455,12 @@ MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
                     logobj.localLog("Mounting directory "+ src + " at "+dest);
 
                     string flags="nolock,vers=3,proto=udp,addr="+*it;
-                    int rvalue = mount(src.c_str(),dest.c_str(),"nfs", MS_RDONLY ,flags.c_str());
+                    int rvalue = mount(src.c_str(),dest.c_str(),"nfs", 0 ,flags.c_str());
                     if (rvalue==-1 && errno==EBUSY)
                          logobj.localLog("Directory already mounted");
                     else if (rvalue==-1)
-                         logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+itos(errno)+"]"+"\n...Exiting");    
+                         logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+itos(errno)+"]"+"\n...Exiting");  
+						  
                 }
             }   
 
@@ -873,7 +876,7 @@ void MapReduce<K,V>::fetchdata(int index1, int index2, int filenum)
     {
         char *buffer= new char[cutoff];
         fin.read(buffer,cutoff);
-        logobj.localLog("Chunk "+itos(chunks[index1].number)+" : No. of bytes read = "+itos(fin.gcount()));
+        logobj.localLog("Chunk "+itos(chunks[index1].number)+" : No. of bytes read = "+itos((int)fin.gcount()));
         fout.write(buffer,cutoff);
         
         length-=cutoff;
@@ -988,21 +991,26 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
 {
     MPI_Request request;
     parseArguments(argc,argv);
+	logobj.localLog("waiting for chunk creation");
     if (rank==0)
     {   
+		logobj.localLog("Entering chunk creation");
         getChunks();    
     }
     
-    sendRankMapping();
-    
     thread t2;
     thread t3;
+	sendRankMapping();
+	MPI_Barrier(comm);
+	logobj.localLog("Creating threads for receive and sort");
     if (rank<numReducers)
     {
         t2 = thread(ReducerReceive<K,V>,this);
         t3=thread(ReducerSort<K,V>,this);
     }
     MPI_Barrier(comm);  
+
+	
     logobj.localLog("###Start of map phase###");
     thread t1=thread(threadFunc1<K,V>,this);
     
@@ -1460,7 +1468,7 @@ int MapReduce<K,V>::replenish(string &data)
     curKVposition+=blocksize;
     kvfilesize-=blocksize;
     
-    logobj.localLog("Reading Key Value File in Reduce Phase : No. of bytes read = "+itos(fin.gcount()));
+    logobj.localLog("Reading Key Value File in Reduce Phase : No. of bytes read = "+itos((int)fin.gcount()));
    
     fin.close();
     delete [] buffer;
@@ -1660,7 +1668,7 @@ void MapReduce<K,V>::readAndAppend(char *buffer)
     {
         char *buffer= new char[cutoff];
         fin.read(buffer,cutoff);
-        logobj.localLog("Reading for final KV Output transfer : No. of bytes read = "+itos(fin.gcount()));
+        logobj.localLog("Reading for final KV Output transfer : No. of bytes read = "+itos((int)fin.gcount()));
         fout.write(buffer,cutoff);
         
         length-=cutoff;
