@@ -1418,6 +1418,17 @@ int MapReduce<K,V>::replenish(string &data)
         blocksize=kvfilesize;
         rvalue=0;
     }
+    if (curKVposition==0)
+    {
+        char buf[20];
+        fin.getline(buf,20);
+        logobj.localLog("No. of keys to be read from final KV file :"+ itos(buf));
+        int numread=fin.tellg();
+        logobj.localLog("Current pos in final KV file :"+ itos(numread)+":"+itos((int)strlen(buf)+1));
+        blocksize-=numread;
+        kvfilesize-=numread;
+        curKVposition+=numread;
+    }
     
     char *buffer= new char[blocksize];
     fin.read(buffer,blocksize);
