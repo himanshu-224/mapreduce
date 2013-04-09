@@ -77,7 +77,7 @@ int map(int argc,char **argv, void(*mapfunc)(vector<string>,  MapReduce<K,V> *),
 int map(void(*mapfunc)(int nprocs, int rank,  MapReduce<K,V> *),int(*hashfunc)(K key, int nump));
 int map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primaryKV&,  MapReduce<K,V> *),int(*hashfunc)(K key, int nump));
 
-int reduce(void(*reducefunc)(MapReduce<K,V>*), void(*outfunc)(KValue<K,V> k));
+int reduce(void(*reducefunc)(MapReduce<K,V>*), string(*outfunc)(KValue<K,V> k));
 
 MapReduce(int, char**,int);
 MapReduce(MPI_Comm communicator,int, char**);
@@ -112,8 +112,8 @@ bool empty();
 void reRead();
 
 void raddkv(K,V);
-void finalKV(void(*outfunc)(KValue<K,V> k)); //for non-rank0 reducers
-void rFinalKV(void(*outfunc)(KValue<K,V> k)); // for rank 0 reducer
+void finalKV(string(*outfunc)(KValue<K,V> k)); //for non-rank0 reducers
+void rFinalKV(string(*outfunc)(KValue<K,V> k)); // for rank 0 reducer
 void readAndAppend(char*);
 };
 
@@ -145,6 +145,13 @@ string itos(float num)
 string itos(double num)
 {
     return static_cast<ostringstream*>( &(ostringstream() << num) )->str();
+}
+
+template <class K,class V>
+string outputFormat(KValue<K,V> k)
+{
+    string str = itos(k.key)+"\t"+itos(k.value)+"\n";
+    return str;
 }
 
 //template <class K,class V> void threadFunc1(MapReduce<int,int> *obj);
@@ -1289,7 +1296,6 @@ void RecvData(queue<char> &buffer, int &completed, int recvRank, MPI_Comm comm, 
     }
 }
 
-
 // Wrapper functions to operate on keyvalue pair
 template <class K, class V>
 void MapReduce<K,V>::addkv(K key, V value)
@@ -1322,6 +1328,8 @@ template<class K,class V>
 bool MapReduce<K,V>::empty()
 {   
     return KeyValuesFinished;
+    logobj.localLog("Finished reading key/value pairs for reduce phase");
+    logobj.localLog("##END of user part of REDUCE phase##");
 }
 
 template<class K,class V>
@@ -1375,6 +1383,7 @@ KMultiValue<K,V> MapReduce<K,V>::getKey()
         {
             if (iskvDataLeft==1)
             {
+                logobj.localLog("Replenishing data buffer for reduce phase");
                 iskvDataLeft= replenish(kvdata);
                 continue;
             }
@@ -1409,10 +1418,12 @@ KMultiValue<K,V> MapReduce<K,V>::getKey()
             }
             else
             {
+                logobj.localLog("Sending KMV to user reduce function with ##key## "+itos(KVList[0].key)+" and no. of values:"+itos((int)KVList.size()));
                 return kvTokmv(KVList);
             }
         }      
     }
+    logobj.localLog("Sending KMV to user reduce function with ##key## "+itos(KVList[0].key)+" and no. of values:"+itos((int)KVList.size()));
     return kvTokmv(KVList);
 }
 
@@ -1423,7 +1434,7 @@ int MapReduce<K,V>::replenish(string &data)
     fin.open(kv->kvfile.c_str(), ios::in | ios::binary);
     fin.seekg (curKVposition, fin.beg);
     int blocksize = 1024*1024;
-
+    //int blocksize = 64;
     int rvalue=1;
     if (kvfilesize<=blocksize)
     {
@@ -1467,19 +1478,19 @@ void MapReduce<K,V>::raddkv(K key,V value)
     finalQueue.push(k);
 }
 template <class K,class V>
-void MapReduce<K,V>::finalKV(void(*outfunc)(KValue<K,V> k))
+void MapReduce<K,V>::finalKV(string(*outfunc)(KValue<K,V> k))
 {   
     string str="";
     int send_limit = 1024*1024;
-    string localpath = mntDir+exportDir+localOutputFile;
+    string localpath = homedir+exportDir+localOutputFile;
     ofstream fout;
     fout.open(localpath.c_str(), ios::out | ios::binary);
-    
+    logobj.localLog("Writing output key/value pairs to local file:"+localpath);
     while(!reduceCompleted || !finalQueue.empty())
     {
         if(!finalQueue.empty())
         {
-            str+=outfunc(finalQueue.front());
+            str=str+outfunc(finalQueue.front());
             finalQueue.pop();
         }
         else
@@ -1503,37 +1514,52 @@ void MapReduce<K,V>::finalKV(void(*outfunc)(KValue<K,V> k))
     }
     fout.close();
     
-    MPI_Status status;
-    MPI_Recv(NULL,0,MPI_INT,0,OK_TO_SEND,comm,&status);
+    logobj.localLog("Finished writing output key/value pairs to local file:"+localpath);
+    
     string fullpath=mntDir+myip+'/'+localOutputFile;
     char *filename = strdup(fullpath.c_str());
     length = fullpath.length()+1;
+    int rvalue;
     
-    MPI_Send(&length,1,MPI_INT,0,FILE_PATH_LENGTH,comm);
+    MPI_Status status;
+    MPI_Recv(NULL,0,MPI_INT,0,OK_TO_SEND,comm,&status);
+    if(rvalue!=0)
+        logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");            
+        
+    logobj.localLog("Received OK_TO_SEND from rank 0");
     
-    MPI_Send(filename,length,MPI_CHAR,0,FILE_PATH,comm);
+    if(!isCluster)
+    {
+        ifstream  src(localpath.c_str());
+        ofstream  dst(filename);
+
+        dst << src.rdbuf();
+    }
+
+    logobj.localLog("Sending path to rank 0 to access output file. Remote path is:"+fullpath);
+    
+    rvalue=MPI_Send(&length,1,MPI_INT,0,FILE_PATH_LENGTH,comm);
+    if(rvalue!=0)
+        logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");            
+    
+    rvalue=MPI_Send(filename,length,MPI_CHAR,0,FILE_PATH,comm);
+    if(rvalue!=0)
+        logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");            
 }
 template <class K,class V>
-void sendFinalKV(MapReduce<K,V>* mr, void(*outfunc)(KValue<K,V> k))
+void sendFinalKV(MapReduce<K,V>* mr, string(*outfunc)(KValue<K,V> k))
 {
     mr->finalKV(outfunc);
 }
 
 template <class K,class V>
-void receiveFinalKV(MapReduce<K,V>* mr, void(*outfunc)(KValue<K,V> k))
+void receiveFinalKV(MapReduce<K,V>* mr, string(*outfunc)(KValue<K,V> k))
 {
     mr->rFinalKV(outfunc);
 }
 
 template <class K,class V>
-string outputFormat(KValue<K,V> k)
-{
-    string str = itos(k.key)+"\t"+itos(k.value)+"\n";
-    return str;
-}
-
-template <class K,class V>
-void MapReduce<K,V>::rFinalKV(void(*outfunc)(KValue<K,V> k))
+void MapReduce<K,V>::rFinalKV(string(*outfunc)(KValue<K,V> k))
 {
     string str="";
     int send_limit = 1024*1024;
@@ -1544,7 +1570,7 @@ void MapReduce<K,V>::rFinalKV(void(*outfunc)(KValue<K,V> k))
     {
         if(!finalQueue.empty())
         {
-            str+=outfunc(finalQueue.front());
+            str=str+outfunc(finalQueue.front());
             finalQueue.pop();
         }
         else
@@ -1567,20 +1593,49 @@ void MapReduce<K,V>::rFinalKV(void(*outfunc)(KValue<K,V> k))
         str.clear();
     }
     fout.close();
-    
+    logobj.localLog("Finished writing key/value pairs on rank 0 to output file:"+outputFile);
     MPI_Status status;
+    int flag,rvalue;
     for(int i=1;i<numReducers;i++)
     {
-        MPI_Send(NULL,0,MPI_INT,i,OK_TO_SEND,comm);
-        MPI_Probe(i, MPI_ANY_TAG,comm,&status);
-        int length;
-        if (status.MPI_TAG==FILE_PATH_LENGTH)
+        rvalue=MPI_Send(NULL,0,MPI_INT,i,OK_TO_SEND,comm);
+        if (rvalue!=0)
+            logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
+        
+        logobj.localLog("Sent OK_TO_Receive to process with rank "+itos(rank));
+        
+        while(1)
         {
-            MPI_Recv(&length,1,MPI_INT,i,FILE_PATH_LENGTH,comm,&status);
-            char* buffer= new char[length];
-            MPI_Recv(buffer,length,MPI_CHAR,i,FILE_PATH,comm,&status);
-            readAndAppend(buffer);
-            delete [] buffer;
+            rvalue=MPI_Iprobe(i, MPI_ANY_TAG,comm, &flag, &status);
+        
+            if (rvalue!=0)
+                logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
+            
+            if (!flag){
+                usleep(1000);
+                continue;
+            }        
+            
+            int length;
+            if (status.MPI_TAG==FILE_PATH_LENGTH)
+            {
+                rvalue=MPI_Recv(&length,1,MPI_INT,i,FILE_PATH_LENGTH,comm,&status);
+                if(rvalue!=0)
+                    logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");            
+                
+                char* buffer= new char[length];
+                rvalue=MPI_Recv(buffer,length,MPI_CHAR,i,FILE_PATH,comm,&status);
+                
+                if(rvalue!=0)
+                    logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");            
+                logobj.localLog("Received path of outputfile from :"+itos(i)+" Path is :"+ string(buffer));
+            
+                readAndAppend(buffer);
+                delete [] buffer;
+            
+                break;
+            }
+        
         }
     }
 }
@@ -1619,7 +1674,7 @@ void MapReduce<K,V>::readAndAppend(char *buffer)
 }
 
 template <class K,class V>
-int MapReduce<K,V>::reduce(void(*reducefunc)(MapReduce<K,V>*), void(*outfunc)(KValue<K,V> k) = outputFormat)
+int MapReduce<K,V>::reduce(void(*reducefunc)(MapReduce<K,V>*), string(*outfunc)(KValue<K,V> k) = outputFormat<K,V>)
 {
     thread t4;
     thread t5;

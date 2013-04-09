@@ -925,7 +925,7 @@ template <>
 inline void KeyValue<int,int>::decodekv(KValue<int,int>  *k1, string str)
 {
 	//logobj.localLog("\t\tstring to be decoded is :::"+str);
-    cout<<str<<endl;
+    //cout<<str<<endl;
 	vector<string> vstr = split(str,'#');
 	k1->key = atoi(vstr[0].c_str());
 	k1->ksize = atoi(vstr[1].c_str());
@@ -1134,7 +1134,7 @@ void KeyValue<K,V>::sortfiles()
 			newfilep.close();
 			buffer.clear();
 			if(nkv[index[minpos]]!=0){
-				cout<<minpos<<"\t"<<index[minpos]<<endl;
+				//cout<<minpos<<"\t"<<index[minpos]<<endl;
 				kvfilep.open(kvfilename[index[minpos]].c_str());
 				kvfilep.seekg(kvpos[index[minpos]],ios::beg);
 				buffer = getkvstr(kvfilep);
