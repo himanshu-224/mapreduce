@@ -1073,10 +1073,10 @@ void KeyValue<K,V>::sortfiles()
 	ofstream newfilep;
 	vector<KValue<K,V> > tempkv;
 	vector<int> index(NUM_SFILE,-1);
-	tempkv.resize(NUM_SFILE);
 	int i,minpos,numfiles;
 	string buffer;
 	KValue<K,V>  temp;
+    
 	logobj.localLog("\tVariables defined for sortfile part");
 	while(1){
 		if((filename.size() < NUM_SFILE) && (recvcomp == 0)){
@@ -1099,7 +1099,7 @@ void KeyValue<K,V>::sortfiles()
 			tnkv+=nkv[i];
 			buffer = getkvstr(kvfilep);
 			decodekv(&temp,buffer);
-			copykv(&tempkv[i],temp);
+			tempkv.push_back(temp);
 			index[i] = i;
 			kvpos[i] = (int)kvfilep.tellg();
 			kvfilep.close();
