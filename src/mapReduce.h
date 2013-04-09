@@ -302,6 +302,8 @@ void MapReduce<K,V>::receiveDefaults()
     logDir=str.substr(curpos,arr[5]);
     curpos+=arr[5];
     kvDir=str.substr(curpos,arr[6]);
+    
+    delete [] buffer;
 }
 
 template <class K,class V>
@@ -808,8 +810,11 @@ vector<primaryKV> MapReduce<K,V>::createChunk(int front)
         char *buffer= new char[length];
         fin.read(buffer,length);
         pkv.value=string(buffer,length);
+        
         chunk.push_back(pkv);
         crsize+=pkv.value.length();
+        
+        delete [] buffer;
         
         if (pkv.value.length()!=fin.gcount())
         {
@@ -854,7 +859,9 @@ void MapReduce<K,V>::fetchdata(int index1, int index2, int filenum)
         
         length-=cutoff;
         if (length<=cutoff)
-            cutoff=length;        
+            cutoff=length;     
+        
+        delete [] buffer;
     }
     
     fin.close();
@@ -1422,6 +1429,7 @@ int MapReduce<K,V>::replenish(string &data)
     logobj.localLog("Reading Key Value File in Reduce Phase : No. of bytes read = "+itos(fin.gcount()));
    
     fin.close();
+    delete [] buffer;
     return rvalue; 
 }
 
@@ -1549,6 +1557,7 @@ void MapReduce<K,V>::rFinalKV(void(*outfunc)(KValue<K,V> k))
             char* buffer= new char[length];
             MPI_Recv(buffer,length,MPI_CHAR,i,FILE_PATH,comm,&status);
             readAndAppend(buffer);
+            delete [] buffer;
         }
     }
 }
@@ -1579,6 +1588,8 @@ void MapReduce<K,V>::readAndAppend(char *buffer)
         length-=cutoff;
         if (length<=cutoff)
             cutoff=length;        
+        
+        delete [] buffer;
     }    
     fin.close();
     fout.close();
