@@ -50,7 +50,7 @@ private:
 	// Type codes char - 0, int - 1, float - 2, double - 3, string - 4
 	int keytype;
 	int valuetype;
-
+    
 
 	// file info
 
@@ -66,6 +66,7 @@ private:
 	
 public:
     string kvfile;
+    int counter;
     
 	KeyValue();
 	KeyValue(MPI_Comm, Logging &, string);
@@ -105,7 +106,6 @@ string itos(int num);
 vector<string> split(string s, char delim);
 
 
-
 template <class K, class V>
 string getfilename(KeyValue<K,V> *,int);
 
@@ -114,7 +114,7 @@ string getfilename(KeyValue<K,V> *obj,int rank)
 {
 	string filename;
 	int curtime = time(NULL);
-	filename = obj->getkvDir() + "kv_" + itos(obj->getrank())+"_"+itos(rank) + "." + itos(curtime);
+	filename = obj->getkvDir() + "kv_" + itos(obj->getrank())+"_"+itos(rank) + "." + itos(obj->counter++);
 	//cout<<"Rank:"<<obj->getrank()<<"\t"<<obj->getkvDir()<<endl;
 	return filename;
 }
@@ -126,8 +126,7 @@ template <class K, class V>
 string getfilename(KeyValue<K,V> *obj,int rank,int rank2)
 {
 	string filename;
-	int curtime = time(NULL);
-	filename = obj->getkvDir() + "kv_" +itos(rank) + "." + itos(curtime);
+	filename = obj->getkvDir() + "kv_" +itos(rank) + "." + itos(obj->counter++);
 	//cout<<"Rank:"<<obj->getrank()<<"\t"<<obj->getkvDir()<<endl;
 	return filename;
 }
@@ -209,6 +208,7 @@ KeyValue<K,V>::KeyValue(MPI_Comm communicator, Logging &log_caller, string kvDir
 	logobj = log_caller;
 	MPI_Comm_rank(comm,&me);
 	kvDir = kvDir_caller;
+    counter=0;
 	/*int curtime = time(NULL);
 
 	int n = 100;
@@ -918,11 +918,15 @@ template <>
 inline void KeyValue<int,int>::decodekv(KValue<int,int>  *k1, string str)
 {
 	//logobj.localLog("\t\tstring to be decoded is :::"+str);
+	char *st= strdup(str.c_str());
+    st[str.length()]='\0';
+    cout<<str<<endl;
 	vector<string> vstr = split(str,'#');
 	k1->key = atoi(vstr[0].c_str());
 	k1->ksize = atoi(vstr[1].c_str());
 	k1->value = atoi(vstr[2].c_str());
 	k1->vsize = atoi(vstr[3].substr(0,vstr[3].length()-1).c_str());
+    vstr.clear();
 }
 
 //Receive key value pair from other process
@@ -1054,7 +1058,7 @@ void KeyValue<K,V>::receivekv(int nump)
 				string err;
 				err = "Rank:" + itos(source)+ " Message of unknowntag received. Ignoring!!";
 				logobj.warning(err);
-				usleep(10000);
+				usleep(1000);
 				break;
 		}
 	}
@@ -1080,7 +1084,7 @@ void KeyValue<K,V>::sortfiles()
 	logobj.localLog("\tVariables defined for sortfile part");
 	while(1){
 		if((filename.size() < NUM_SFILE) && (recvcomp == 0)){
-			usleep(100000);
+			usleep(1000);
 			continue;
 		}
 		numfiles = min((int)filename.size(),NUM_SFILE);
