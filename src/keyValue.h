@@ -1045,7 +1045,7 @@ void KeyValue<K,V>::receivekv(int nump)
 				msg.clear();
 				if(nump==0){
 					recvcomp = 1;
-					logobj.localLog("\trecvcomp is set to be 1");
+					logobj.localLog("\trecvcomp is set to be 1\t number of files = "+itos((int)filename.size()));
 					return;
 				}
 				break;
@@ -1098,6 +1098,7 @@ void KeyValue<K,V>::sortfiles()
 			nkv[i] = getnkv(kvfilep);
 			tnkv+=nkv[i];
 			buffer = getkvstr(kvfilep);
+			logobj.localLog("String to be decoded :::"+buffer+" from file::"+kvfilename[i]);
 			decodekv(&temp,buffer);
 			copykv(&tempkv[i],temp);
 			index[i] = i;
@@ -1120,6 +1121,7 @@ void KeyValue<K,V>::sortfiles()
 			newfilep.close();
 			buffer.clear();
 			if(nkv[index[minpos]]!=0){
+				cout<<minpos<<"\t"<<index[minpos]<<endl;
 				kvfilep.open(kvfilename[index[minpos]].c_str());
 				kvfilep.seekg(kvpos[index[minpos]],ios::beg);
 				buffer = getkvstr(kvfilep);

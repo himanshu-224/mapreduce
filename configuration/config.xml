@@ -1,6 +1,6 @@
 <Configuration>
 <Paths>
-<HomeDirectory>/home/himanshu/</HomeDirectory>
+<HomeDirectory>/home/atulag/</HomeDirectory>
 <ExportDirectory>export/</ExportDirectory>
     
 <IPListFile>mapReduce/ipList.txt</IPListFile>
