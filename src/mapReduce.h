@@ -240,7 +240,7 @@ void MapReduce<K,V>::readDefaults(string configFile)
 template <class K,class V>
 void MapReduce<K,V>::sendDefaults()
 {
-    int n=7;
+    int n=8;
     int arr[n];
     string globalchunkMapFile;
     
@@ -263,8 +263,9 @@ void MapReduce<K,V>::sendDefaults()
     arr[4]=itos(isCluster).length();
     arr[5]=logDir.length();
     arr[6]=kvDir.length();
+    arr[7]=exportDir.length();
     
-    string str = homedir+globalchunkMapFile+mntDir+itos(chunkSize)+itos(isCluster)+logDir+kvDir;
+    string str = homedir+globalchunkMapFile+mntDir+itos(chunkSize)+itos(isCluster)+logDir+kvDir+exportDir;
     char *buffer = strdup(str.c_str());
     
     for(int i=1;i<nprocs;i++){
@@ -277,7 +278,7 @@ template <class K,class V>
 void MapReduce<K,V>::receiveDefaults()
 {
     MPI_Status status;
-    int n=7,length=0,curpos=0;
+    int n=8,length=0,curpos=0;
     int arr[n];
     MPI_Recv(arr,n,MPI_INT,0,20,comm,&status);
     
@@ -302,6 +303,8 @@ void MapReduce<K,V>::receiveDefaults()
     logDir=str.substr(curpos,arr[5]);
     curpos+=arr[5];
     kvDir=str.substr(curpos,arr[6]);
+    curpos+=arr[6];
+    exportDir=str.substr(curpos,arr[7]);    
     
     delete [] buffer;
 }
@@ -400,10 +403,19 @@ MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
     parseArguments(argc,argv);
     kv=new KeyValue<K,V>(comm,logobj,kvDir);
     
+    if (isCluster)
+    {
+        mkdir((homedir+exportDir).c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+        logobj.localLog("Created export directory : "+(homedir+exportDir));
+    
+        mkdir(kvDir.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+        logobj.localLog("Created keyValue directory : "+kvDir);
+    }
+    
     if (rank==0)  /*Mount all directories except its own in READONLY mode*/
     {
         mkdir(mntDir.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-        logobj.localLog("Created directory : "+mntDir);
+        logobj.localLog("Created mount directory : "+mntDir);
         vector<string> iplist = filesystemsList(dirFile,dirList,fileList);
         
         string singleip;
