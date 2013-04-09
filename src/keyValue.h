@@ -1081,7 +1081,7 @@ void KeyValue<K,V>::sortfiles()
 	string newfile;
 	ofstream newfilep;
 	vector<KValue<K,V> > tempkv;
-	vector<int> index(NUM_SFILE,-1);
+	vector<int> index;
 	int i,minpos,numfiles;
 	string buffer;
 	KValue<K,V>  temp;
@@ -1112,7 +1112,7 @@ void KeyValue<K,V>::sortfiles()
 			logobj.localLog("String to be decoded :::"+buffer+" from file::"+kvfilename[i]);
 			decodekv(&temp,buffer);
 			tempkv.push_back(temp);
-			index[i] = i;
+			index.push_back(i);
 			kvpos[i] = (int)kvfilep.tellg();
 			kvfilep.close();
 			nkv[i]--;
@@ -1125,9 +1125,9 @@ void KeyValue<K,V>::sortfiles()
 		newfilep.close();
 		while(1){
 			minpos = distance(tempkv.begin(),min_element(tempkv.begin(),tempkv.end(),compkv));
-			logobj.localLog("Minpos : "+itos(minpos));
+			//logobj.localLog("Minpos : "+itos(minpos));
 			buffer.clear();
-			printkv(tempkv.at(minpos));
+			//printkv(tempkv.at(minpos));
 			buffer = encodekv(tempkv.at(minpos));
 			newfilep.open(newfile.c_str(), ios::out | ios::app | ios::binary);
 			newfilep.write(strdup(buffer.c_str()),buffer.length());
