@@ -74,6 +74,7 @@ public:
 	
 	void add(K, V);
 	void printkv();
+	void printkv(KValue<K,V> tempkv);
 	void printkv(deque<KValue<K,V> > tempkv);
 	void sortkv(int);
 	int sortkv();
@@ -454,6 +455,12 @@ void KeyValue<K,V>::printkv()
 	for(int index=0;index < kv.size(); ++index){
 		cout<<index+1<<"\tKey: "<<kv.at(index).key<<"\tValue: "<<kv.at(index).value<<endl;
 	}
+}
+
+template <class K,class V>
+void KeyValue<K,V>::printkv(KValue<K,V> tempkv)
+{
+	cout<<"Key: "<<tempkv.key<<"\tValue: "<<tempkv.value<<endl;
 }
 
 template <class K,class V>
@@ -1087,6 +1094,8 @@ void KeyValue<K,V>::sortfiles()
 		}
 		numfiles = min((int)filename.size(),NUM_SFILE);
 		logobj.localLog("\tStarted file sorting. recvcomp="+itos(recvcomp)+" and numfiles="+itos(numfiles));
+		//tempkv.resize(numfiles);
+		//index.resize(numfiles);
 		for(i=0;i<numfiles;i++){
 			kvfilename[i] = filename.front();
 			filename.pop_front();
@@ -1116,7 +1125,9 @@ void KeyValue<K,V>::sortfiles()
 		newfilep.close();
 		while(1){
 			minpos = distance(tempkv.begin(),min_element(tempkv.begin(),tempkv.end(),compkv));
+			logobj.localLog("Minpos : "+itos(minpos));
 			buffer.clear();
+			printkv(tempkv.at(minpos));
 			buffer = encodekv(tempkv.at(minpos));
 			newfilep.open(newfile.c_str(), ios::out | ios::app | ios::binary);
 			newfilep.write(strdup(buffer.c_str()),buffer.length());
@@ -1137,8 +1148,8 @@ void KeyValue<K,V>::sortfiles()
 			else{
 				tempkv.erase(tempkv.begin() + minpos);
 				remove(kvfilename[index[minpos]].c_str());
-                logobj.localLog("Index -> size:"+itos(index.size()));
-                logobj.localLog("Index -> minpos:"+itos(minpos));
+				logobj.localLog("Index -> size:"+itos(index.size()));
+				logobj.localLog("Index -> minpos:"+itos(minpos));
 				index.erase(index.begin() + minpos);
 				//logobj.localLog("Read all keyvalue pair from "+kvfilename[index[minpos]]);
 				if (tempkv.size() == 0){
