@@ -918,8 +918,6 @@ template <>
 inline void KeyValue<int,int>::decodekv(KValue<int,int>  *k1, string str)
 {
 	//logobj.localLog("\t\tstring to be decoded is :::"+str);
-	char *st= strdup(str.c_str());
-    st[str.length()]='\0';
     cout<<str<<endl;
 	vector<string> vstr = split(str,'#');
 	k1->key = atoi(vstr[0].c_str());
@@ -1139,6 +1137,8 @@ void KeyValue<K,V>::sortfiles()
 			else{
 				tempkv.erase(tempkv.begin() + minpos);
 				remove(kvfilename[index[minpos]].c_str());
+                logobj.localLog("Index -> size:"+itos(index.size()));
+                logobj.localLog("Index -> minpos:"+itos(minpos));
 				index.erase(index.begin() + minpos);
 				//logobj.localLog("Read all keyvalue pair from "+kvfilename[index[minpos]]);
 				if (tempkv.size() == 0){
