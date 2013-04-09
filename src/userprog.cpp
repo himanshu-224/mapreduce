@@ -20,7 +20,7 @@ int main(int argc, char **argv)
 
     cout<<"Attached to gdb and exiting from gdb wait\n";*/
 
-MapReduce<int,int> mr= MapReduce<int,int>(argc,argv,4);
+MapReduce<int,int> mr= MapReduce<int,int>(argc,argv,1);
 mr.map(argc,argv,mfunc);
 //mr.reduce(rfunc);
 /*KeyValue<int,int> kv = KeyValue<int,int>();
@@ -39,7 +39,7 @@ void mfunc(vector<primaryKV> &kv, MapReduce<int,int> *mr)
 	srand(time(NULL));
     for(int i=1;i<=10;i++)
     {
-	    temp = rand()%v+i;
+	    temp = (rand()%20)*time(NULL)%v+i;
         mr->addkv(temp,1);
     }
 }

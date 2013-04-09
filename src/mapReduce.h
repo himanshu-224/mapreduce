@@ -330,12 +330,15 @@ void MapReduce<K,V>::reduceReceive()
 {
     logobj.localLog("Start of Receiver thread");
     kv->receivekv(this->nprocs);
+    logobj.localLog("##End of Receiver thread");
 }
 
 template <class K,class V>
 void MapReduce<K,V>::reduceSort()
 {
+	logobj.localLog("##Start of Sortfiles thread");
 	kv->sortfiles();
+	logobj.localLog("##End of Sortfiles thread");
     findFileSize();
 }
 
@@ -978,7 +981,7 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
     if (rank<numReducers)
     {
         t2 = thread(ReducerReceive<K,V>,this);
-        //t3=thread(ReducerSort<K,V>,this);
+        t3=thread(ReducerSort<K,V>,this);
     }
     MPI_Barrier(comm);  
     logobj.localLog("###Start of map phase###");
@@ -1020,7 +1023,7 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
     }
    if (rank<numReducers){
        t2.join();
-       //t3.join();
+       t3.join();
    }
    MPI_Barrier(comm);
     logobj.localLog("End of MAP PHASE");

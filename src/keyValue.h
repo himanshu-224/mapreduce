@@ -86,11 +86,13 @@ public:
 	
 	void receivekv(int);
 	void sortfiles();
+	string getkvstr(ifstream& filep);
+	int getnkv(ifstream& filep);
+	
 	string getkvDir()
 	{
 		return kvDir;
 	}
-	string getkvstr(ifstream& filep);
 	int getrank()
 	{
 		return me;
@@ -113,6 +115,19 @@ string getfilename(KeyValue<K,V> *obj,int rank)
 	string filename;
 	int curtime = time(NULL);
 	filename = obj->getkvDir() + "kv_" + itos(obj->getrank())+"_"+itos(rank) + "." + itos(curtime);
+	//cout<<"Rank:"<<obj->getrank()<<"\t"<<obj->getkvDir()<<endl;
+	return filename;
+}
+
+template <class K, class V>
+string getfilename(KeyValue<K,V> *,int,int);
+
+template <class K, class V>
+string getfilename(KeyValue<K,V> *obj,int rank,int rank2)
+{
+	string filename;
+	int curtime = time(NULL);
+	filename = obj->getkvDir() + "kv_" +itos(rank) + "." + itos(curtime);
 	//cout<<"Rank:"<<obj->getrank()<<"\t"<<obj->getkvDir()<<endl;
 	return filename;
 }
@@ -143,6 +158,23 @@ string KeyValue<K,V>::getkvstr(ifstream& filep)
 		else{
 			str+=string(1,c);
 		}
+	}
+}
+
+template <class K, class V>
+int KeyValue<K,V>::getnkv(ifstream& filep)
+{
+	string str;
+	char c;
+	int numkv;
+	while(filep.good())
+	{
+		c=filep.get();
+		if(c=='\n'){
+			numkv = atoi(str.c_str());
+			return numkv;
+		}
+		str+=string(1,c);
 	}
 }
 /*template <class K,class V>
@@ -885,6 +917,7 @@ inline string KeyValue<int,int>::encodekv(KValue<int,int>  k)
 template <>
 inline void KeyValue<int,int>::decodekv(KValue<int,int>  *k1, string str)
 {
+	//logobj.localLog("\t\tstring to be decoded is :::"+str);
 	vector<string> vstr = split(str,'#');
 	k1->key = atoi(vstr[0].c_str());
 	k1->ksize = atoi(vstr[1].c_str());
@@ -907,7 +940,7 @@ void KeyValue<K,V>::receivekv(int nump)
 	int source,flag;
 	int nkv,rvalue;
 	char *buffer;
-	string msg;
+	string msg,strnkv;
 	if(nump < 1){
 		string err = "Error: Total number of map process is less than 1. Exiting!!";
 		logobj.error(err);
@@ -938,8 +971,12 @@ void KeyValue<K,V>::receivekv(int nump)
 				procfile[source] = getfilename(this, source);
 				//procfp[source].open(procfile[source].c_str(), ios::out | ios::app | ios::binary);
 				rvalue = MPI_Recv(&nkv,1,MPI_INT,source,NUM_KEY,comm,&status);
-                if (rvalue!=0)
-                    logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
+				if (rvalue!=0)
+					logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
+				procfp.open(procfile[source].c_str(), ios::out | ios::app | ios::binary);
+				strnkv = ""+itos(nkv)+"\n";
+				procfp.write(strdup(strnkv.c_str()),strnkv.length());
+				procfp.close();
 				break;
 			
 			case SIZE_NXTMSG:
@@ -961,13 +998,13 @@ void KeyValue<K,V>::receivekv(int nump)
 				logobj.localLog(msg);
 				msg.clear();
 				buffer = (char*)malloc(proclen[source]);
-                if (buffer==NULL)
-                {
-                    logobj.error("Failed to allocate "+itos(proclen[source])+" bytes for buffer to get keyvalue string from file");
-                }
-				rvalue = MPI_Recv(buffer,proclen[source],MPI_CHAR,source,KEYVALUE,comm,&status);
-                if (rvalue!=0)
-                    logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
+				if (buffer==NULL)
+				{
+				logobj.error("Failed to allocate "+itos(proclen[source])+" bytes for buffer to get keyvalue string from file");
+				}
+						rvalue = MPI_Recv(buffer,proclen[source],MPI_CHAR,source,KEYVALUE,comm,&status);
+				if (rvalue!=0)
+					logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 				procfp.open(procfile[source].c_str(), ios::out | ios::app | ios::binary);
 				procfp.write(buffer,proclen[source]);
 				procfp.close();
@@ -982,8 +1019,8 @@ void KeyValue<K,V>::receivekv(int nump)
 					logobj.error(err);
 				}
 				rvalue=MPI_Recv(NULL,0,MPI_INT,source,END_MAP_TASK,comm,&status);
-                if (rvalue!=0)
-                    logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
+				if (rvalue!=0)
+					logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 				//procfp[source].close();
 				msg = "Received End of map task message from rank:"+itos(source);
 				logobj.localLog(msg);
@@ -999,15 +1036,16 @@ void KeyValue<K,V>::receivekv(int nump)
 					logobj.error(err);
 				}
 				rvalue = MPI_Recv(NULL,0,MPI_INT,source,END_MAP,comm,&status);
-                if (rvalue!=0)
-                    logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
+				if (rvalue!=0)
+					logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 				nump--;
 				msg = "Received end of map phase from rank:"+itos(source);
-                msg+="\nNumber of process left is "+itos(nump);
-                logobj.localLog(msg);
-                msg.clear();
-                if(nump==0){
+				msg+="\nNumber of process left is "+itos(nump);
+				logobj.localLog(msg);
+				msg.clear();
+				if(nump==0){
 					recvcomp = 1;
+					logobj.localLog("\trecvcomp is set to be 1");
 					return;
 				}
 				break;
@@ -1025,10 +1063,12 @@ void KeyValue<K,V>::receivekv(int nump)
 template <class K, class V>
 void KeyValue<K,V>::sortfiles()
 {
+	logobj.localLog("\tEntered sortfiles part");
 	string kvfilename[NUM_SFILE];
 	//ifstream kvfilep[NUM_SFILE];
 	ifstream kvfilep;
 	int kvpos[NUM_SFILE];
+	int nkv[NUM_SFILE],tnkv;
 	string newfile;
 	ofstream newfilep;
 	vector<KValue<K,V> > tempkv;
@@ -1037,48 +1077,64 @@ void KeyValue<K,V>::sortfiles()
 	int i,minpos,numfiles;
 	string buffer;
 	KValue<K,V>  temp;
+	logobj.localLog("\tVariables defined for sortfile part");
 	while(1){
-		if((filename.size() < NUM_SFILE) || (recvcomp == 0)){
+		if((filename.size() < NUM_SFILE) && (recvcomp == 0)){
 			usleep(100000);
 			continue;
 		}
 		numfiles = min((int)filename.size(),NUM_SFILE);
+		logobj.localLog("\tStarted file sorting. recvcomp="+itos(recvcomp)+" and numfiles="+itos(numfiles));
 		for(i=0;i<numfiles;i++){
 			kvfilename[i] = filename.front();
 			filename.pop_front();
 			//kvfilep[i].open(kvfilename[i].c_str());
 		}
-		newfile = getfilename(this,me);
-		newfilep.open(newfile.c_str(), ios::out | ios::app | ios::binary);
+		logobj.localLog("\tRead all filesname for sorting");
+		newfile = getfilename(this,me,me);
+		tnkv=0;
 		for(i=0;i<numfiles;i++){
 			kvfilep.open(kvfilename[i].c_str());
+			nkv[i] = getnkv(kvfilep);
+			tnkv+=nkv[i];
 			buffer = getkvstr(kvfilep);
 			decodekv(&temp,buffer);
 			copykv(&tempkv[i],temp);
 			index[i] = i;
 			kvpos[i] = (int)kvfilep.tellg();
 			kvfilep.close();
+			nkv[i]--;
 		}
+		logobj.localLog("\tRead atleast 1 keyvalue from each file");
+		buffer.clear();
+		buffer = ""+itos(tnkv)+"\n";
+		newfilep.open(newfile.c_str(), ios::out | ios::app | ios::binary);
+		newfilep.write(strdup(buffer.c_str()),buffer.length());
+		newfilep.close();
 		while(1){
 			minpos = distance(tempkv.begin(),min_element(tempkv.begin(),tempkv.end(),compkv));
 			buffer.clear();
 			buffer = encodekv(tempkv.at(minpos));
+			newfilep.open(newfile.c_str(), ios::out | ios::app | ios::binary);
 			newfilep.write(strdup(buffer.c_str()),buffer.length());
+			newfilep.close();
 			buffer.clear();
-			kvfilep.open(kvfilename[index[minpos]].c_str());
-			kvfilep.seekg(kvpos[index[minpos]],ios::beg);
-			if(kvfilep.good()){
+			if(nkv[index[minpos]]!=0){
+				kvfilep.open(kvfilename[index[minpos]].c_str());
+				kvfilep.seekg(kvpos[index[minpos]],ios::beg);
 				buffer = getkvstr(kvfilep);
+				logobj.localLog("String to be decoded :::"+buffer+" from file::"+kvfilename[index[minpos]]);
 				decodekv(&temp,buffer);
 				copykv(&tempkv[minpos],temp);
 				kvpos[index[minpos]] = (int)kvfilep.tellg();
 				kvfilep.close();
+				nkv[index[minpos]]--;
 			}
 			else{
 				tempkv.erase(tempkv.begin() + minpos);
-				kvfilep.close();
 				remove(kvfilename[index[minpos]].c_str());
 				index.erase(index.begin() + minpos);
+				//logobj.localLog("Read all keyvalue pair from "+kvfilename[index[minpos]]);
 				if (tempkv.size() == 0){
 					newfilep.close();
 					filename.push_front(newfile);
@@ -1086,9 +1142,11 @@ void KeyValue<K,V>::sortfiles()
 				}
 			}
 		}
+		logobj.localLog("\tEnd of sorting file loop");
 		if ((recvcomp == 1) && (filename.size() == 1)){
 			kvfile = filename.front();
 			filename.pop_front();
+			logobj.localLog("\tAll files sorted in a single file");
 			return;
 		}
 	}
