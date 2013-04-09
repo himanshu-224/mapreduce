@@ -39,7 +39,7 @@ void mfunc(vector<primaryKV> &kv, MapReduce<int,int> *mr)
 	srand(time(NULL));
     for(int i=1;i<=10;i++)
     {
-	    temp = (rand()%20)*time(NULL)%v+i;
+	    temp = rand()%v+i;
         mr->addkv(temp,1);
     }
 }
