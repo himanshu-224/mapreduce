@@ -36,10 +36,12 @@ return 0;
 
 void mfunc(vector<primaryKV> &kv, MapReduce<int,int> *mr)
 {
+
 	int temp,v=1024*256;
 	srand(time(NULL));
     for(int i=1;i<=1000;i++)
     {
+		srand(time(NULL));
 	    temp = rand()%v+i;
         mr->addkv(temp,1);
     }
