@@ -1,6 +1,2 @@
-10.1.1.1/mapReduce/folder1
-10.1.255.253/mapReduce/folder1
-10.1.255.252/mapReduce/folder1
-10.1.1.1/mapReduce/folder1
-10.1.255.253/mapReduce/folder1
-10.1.255.252/mapReduce/folder1
+10.1.1.1/mapReduce/folder2
+

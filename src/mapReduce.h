@@ -990,6 +990,7 @@ template <class K,class V>
 int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&, MapReduce<K,V> *), int(*hashfunc)(K key, int nump) = defaulthash<K>)
 {
     MPI_Request request;
+    double stime = MPI_Wtime();
     parseArguments(argc,argv);
 	logobj.localLog("waiting for chunk creation");
     if (rank==0)
@@ -1053,6 +1054,10 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
        t3.join();
    }
    MPI_Barrier(comm);
+    double ftime = MPI_Wtime();
+    double difftime=ftime-stime;
+    cout<<"Rank :"<<rank<<" Time taken in Map phase : "<<difftime<<endl;
+    logobj.localLog("Time taken in map phase "+itos(difftime));   
     logobj.localLog("End of MAP PHASE");
     return 1;
 }
@@ -1463,7 +1468,7 @@ int MapReduce<K,V>::replenish(string &data)
     
     char *buffer= new char[blocksize];
     fin.read(buffer,blocksize);
-    data=data+string(buffer);
+    data=data+string(buffer,blocksize);
     
     curKVposition+=blocksize;
     kvfilesize-=blocksize;
@@ -1489,6 +1494,7 @@ template <class K,class V>
 void MapReduce<K,V>::finalKV(string(*outfunc)(KValue<K,V> k))
 {   
     string str="";
+    double stime = MPI_Wtime();
     int send_limit = 1024*1024;
     string localpath = homedir+exportDir+localOutputFile;
     ofstream fout;
@@ -1521,6 +1527,12 @@ void MapReduce<K,V>::finalKV(string(*outfunc)(KValue<K,V> k))
         str.clear();
     }
     fout.close();
+
+    double ftime = MPI_Wtime();
+    double difftime=ftime-stime;
+    cout<<"Rank :"<<rank<<" Time taken for local reduce : "<<difftime<<endl;
+    logobj.localLog("Time taken for local reduce : "+itos(difftime));
+
     
     logobj.localLog("Finished writing output key/value pairs to local file:"+localpath);
     
@@ -1572,6 +1584,7 @@ void MapReduce<K,V>::rFinalKV(string(*outfunc)(KValue<K,V> k))
     string str="";
     int send_limit = 1024*1024;
     ofstream fout;
+    double stime = MPI_Wtime();
     fout.open(outputFile.c_str(), ios::out | ios::binary);
     
     while(!reduceCompleted || !finalQueue.empty())
@@ -1602,6 +1615,12 @@ void MapReduce<K,V>::rFinalKV(string(*outfunc)(KValue<K,V> k))
     }
     fout.close();
     logobj.localLog("Finished writing key/value pairs on rank 0 to output file:"+outputFile);
+    
+    double ftime = MPI_Wtime();
+    double difftime=ftime-stime;
+    cout<<"Rank :"<<rank<<" Time taken for local reduce : "<<difftime<<endl;
+    logobj.localLog("Time taken for local reduce : "+itos(difftime));
+    
     MPI_Status status;
     int flag,rvalue;
     for(int i=1;i<numReducers;i++)
@@ -1686,6 +1705,7 @@ int MapReduce<K,V>::reduce(void(*reducefunc)(MapReduce<K,V>*), string(*outfunc)(
 {
     thread t4;
     thread t5;
+    double stime = MPI_Wtime();    
     if (rank<numReducers && rank!=0)
     {
         t4 = thread(sendFinalKV<K,V>,this,outfunc);
@@ -1696,8 +1716,15 @@ int MapReduce<K,V>::reduce(void(*reducefunc)(MapReduce<K,V>*), string(*outfunc)(
     }
     if (rank<numReducers)
     {
+        double sttime = MPI_Wtime();     
         reducefunc(this);
         reduceCompleted=true;
+
+        double fntime = MPI_Wtime();
+        double difftime=fntime-sttime;
+        cout<<"Rank :"<<rank<<" Time taken in user part of Reduce phase : "<<difftime<<endl;
+        logobj.localLog("Time taken in user part of reduce phase "+itos(difftime));   
+
     }
     
     if (rank<numReducers && rank!=0)
@@ -1709,6 +1736,11 @@ int MapReduce<K,V>::reduce(void(*reducefunc)(MapReduce<K,V>*), string(*outfunc)(
         t5.join();
     }
     MPI_Barrier(comm);
+    double ftime = MPI_Wtime();
+    double difftime=ftime-stime;
+    cout<<"Rank :"<<rank<<" Time taken in Reduce phase : "<<difftime<<endl;
+    logobj.localLog("Time taken in reduce phase "+itos(difftime));   
+    logobj.localLog("##END of REDUCE phase##");
 }
 
 #endif
