@@ -21,7 +21,7 @@ int main(int argc, char **argv)
     printf("PID %d on %s ready for attach\n", getpid(), hostname);
     fflush(stdout);
 
-    MapReduce<int,int> mr= MapReduce<int,int>(argc,argv,2);
+    MapReduce<int,int> mr= MapReduce<int,int>(argc,argv,1);
     mr.map(argc,argv,mfunc);
     mr.reduce(rfunc);
 
@@ -46,10 +46,12 @@ void rfunc(MapReduce<int,int> *mr)
     {
         KMultiValue<int,int> kmv = mr->getKey();
         int length=kmv.length;
+        int sum=0;
         for(int i=0;i<length;i++)
         {
-            mr->raddkv(kmv.key,kmv.mv[i].value);
+            //sum+=kmv.mv[i].value;
         }
+        mr->raddkv(kmv.key,sum);
     }
     
 }

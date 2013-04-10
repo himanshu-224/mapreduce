@@ -1431,12 +1431,12 @@ KMultiValue<K,V> MapReduce<K,V>::getKey()
             }
             else
             {
-                logobj.localLog("Sending KMV to user reduce function with ##key## "+itos(KVList[0].key)+" and no. of values:"+itos((int)KVList.size()));
+                //logobj.localLog("Sending KMV to user reduce function with ##key## "+itos(KVList[0].key)+" and no. of values:"+itos((int)KVList.size()));
                 return kvTokmv(KVList);
             }
         }      
     }
-    logobj.localLog("Sending KMV to user reduce function with ##key## "+itos(KVList[0].key)+" and no. of values:"+itos((int)KVList.size()));
+    //logobj.localLog("Sending KMV to user reduce function with ##key## "+itos(KVList[0].key)+" and no. of values:"+itos((int)KVList.size()));
     return kvTokmv(KVList);
 }
 
@@ -1508,7 +1508,7 @@ void MapReduce<K,V>::finalKV(string(*outfunc)(KValue<K,V> k))
             finalQueue.pop();
         }
         else
-            usleep(1000);
+            usleep(10);
         if (str.length() > send_limit)
         {
             int length=str.length();
@@ -1595,7 +1595,7 @@ void MapReduce<K,V>::rFinalKV(string(*outfunc)(KValue<K,V> k))
             finalQueue.pop();
         }
         else
-            usleep(1000);
+            usleep(10);
         if (str.length() > send_limit)
         {
             int length=str.length();
@@ -1639,7 +1639,7 @@ void MapReduce<K,V>::rFinalKV(string(*outfunc)(KValue<K,V> k))
                 logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
             
             if (!flag){
-                usleep(1000);
+                usleep(10);
                 continue;
             }        
             
