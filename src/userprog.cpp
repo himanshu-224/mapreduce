@@ -21,7 +21,7 @@ int main(int argc, char **argv)
     printf("PID %d on %s ready for attach\n", getpid(), hostname);
     fflush(stdout);
 
-    MapReduce<int,int> mr= MapReduce<int,int>(argc,argv,1);
+    MapReduce<int,int> mr= MapReduce<int,int>(argc,argv,2);
     mr.map(argc,argv,mfunc);
     mr.reduce(rfunc);
 
@@ -32,7 +32,7 @@ void mfunc(vector<primaryKV> &kv, MapReduce<int,int> *mr)
 {
     int temp,v=1024*256;
     srand(time(NULL));
-    for(int i=1;i<=3000;i++)
+    for(int i=1;i<=10000;i++)
     {
         srand(time(NULL));
         temp = rand()%v+i;

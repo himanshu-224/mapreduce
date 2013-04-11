@@ -12,7 +12,7 @@ using namespace std;
 
 int main (int argc, char **argv) {
 ofstream fout;
-fout.open("/home/himanshu/mpidata/10.1.1.1/mapReduce/folder2/numberfile",ios::out);
+fout.open("/home/atulag/mpidata/10.1.1.1/mapReduce/folder2/numberfile",ios::out);
 //srand(time(NULL));
 int i;
 int n=10000;
