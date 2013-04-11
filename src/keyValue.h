@@ -20,13 +20,13 @@
 #include "logging.h"
 
 #define INT_MAX 0x7FFFFFFF
-#define STR_MAX 5120
+#define STR_MAX 51200
 #define NUM_KEY 2
 #define SIZE_NXTMSG 3
 #define KEYVALUE 4
 #define END_MAP_TASK 5
 #define END_MAP 6
-#define NUM_SFILE 10
+#define NUM_SFILE 50
 
 using namespace std;
 
@@ -1156,8 +1156,8 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 	string str,str2;
 	int len;
 	tempkv.resize(nump);
-    MPI_Request request;
-    int rvalue;
+	MPI_Request request;
+	int rvalue;
 	if (nump ==1){
 		for(i=0;i<numkey;i++){
 			tempkv[0].push_back(kv.front());
@@ -1180,30 +1180,29 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 	}
 	logobj.localLog("KeyValue pair partitioned");
 	
-    string log;
+	string log;
 	int flag;
 	MPI_Status status;
 	for(i=0;i<nump;i++)
 	{
-        if(tempnkv[i] == 0)
-            continue;
-        log = "Sending signal to START keyvalue transfer to process:"+itos(i);
-        logobj.localLog(log);
-        log.clear();
-		rvalue=MPI_Issend(&tempnkv[i],1,MPI_INT,i,NUM_KEY,comm,&request);
+		if(tempnkv[i] == 0)
+			continue;
+		log = "Sending signal to START keyvalue transfer to process:"+itos(i);
+		logobj.localLog(log);
+		log.clear();
+		//rvalue=MPI_Send(&tempnkv[i],1,MPI_INT,i,NUM_KEY,comm);
+		rvalue=MPI_Isend(&tempnkv[i],1,MPI_INT,i,NUM_KEY,comm,&request);
 		while(1)
 		{
 			MPI_Test(&request,&flag,&status);	
 			if (!flag)
-			{
-				usleep(100);
-			}
+				usleep(10);
 			else
 				break;
 		}
 		if (rvalue!=0)
-            logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
-        str.clear();
+			logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
+		str.clear();
 		for(j=0;j<tempnkv[i];j++)
 		{
 			str2=encodekv(tempkv[i].front());
@@ -1213,21 +1212,20 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 				char *buffer = strdup(str.c_str());
 				len = str.length();
 				log = "Sending keyvalue pair to process:"+itos(i);
-                logobj.localLog(log);
-                log.clear();
-                rvalue=MPI_Issend(buffer,len,MPI_CHAR,i,KEYVALUE,comm,&request);
+				logobj.localLog(log);
+				log.clear();
+				//rvalue=MPI_Send(buffer,len,MPI_CHAR,i,KEYVALUE,comm);
+				rvalue=MPI_Isend(buffer,len,MPI_CHAR,i,KEYVALUE,comm,&request);
 				while(1)
 				{
 					MPI_Test(&request,&flag,&status);	
 					if (!flag)
-					{
-						usleep(100);
-					}
+						usleep(10);
 					else
-					break;
+						break;
 				}
-                if (rvalue!=0)
-                    logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
+				if (rvalue!=0)
+					logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 				str.clear();
 			}
 			str+=str2;
@@ -1236,40 +1234,37 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 		{
 			len = str.length();
 			log = "Sending keyvalue pair to process:"+itos(i);
-            logobj.localLog(log);
-            log.clear();
+			logobj.localLog(log);
+			log.clear();
 			char *buffer = strdup(str.c_str());
-            rvalue=MPI_Issend(buffer,len,MPI_CHAR,i,KEYVALUE,comm,&request);
+			//rvalue=MPI_Send(buffer,len,MPI_CHAR,i,KEYVALUE,comm);
+			rvalue=MPI_Isend(buffer,len,MPI_CHAR,i,KEYVALUE,comm,&request);
 			while(1)
 			{
 				MPI_Test(&request,&flag,&status);	
 				if (!flag)
-				{
-					usleep(100);
-				}
+					usleep(10);
 				else
-				break;
+					break;
 			}
-            if (rvalue!=0)
-                logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
+			if (rvalue!=0)
+				logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 		}
-		len = 0;
-        log = "Sending signal for END of maptask to process:"+itos(i);
-        logobj.localLog(log);
-        log.clear();
-		rvalue=MPI_Issend(NULL,0,MPI_INT,i,END_MAP_TASK,comm,&request);
+		log = "Sending signal for END of maptask to process:"+itos(i);
+		logobj.localLog(log);
+		log.clear();
+		//rvalue=MPI_Send(NULL,0,MPI_INT,i,END_MAP_TASK,comm);
+		rvalue=MPI_Isend(NULL,0,MPI_INT,i,END_MAP_TASK,comm,&request);
 		while(1)
 		{
 			MPI_Test(&request,&flag,&status);	
 			if (!flag)
-			{
-				usleep(100);
-			}
+				usleep(10);
 			else
-			break;
+				break;
 		}
-        if (rvalue!=0)
-            logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
+		if (rvalue!=0)
+			logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 	}
 }
 

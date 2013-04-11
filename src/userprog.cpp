@@ -32,7 +32,7 @@ void mfunc(vector<primaryKV> &kv, MapReduce<int,int> *mr)
 {
     int temp,v=1024*256;
     srand(time(NULL));
-    for(int i=1;i<=10000;i++)
+    for(int i=1;i<=100000;i++)
     {
         srand(time(NULL));
         temp = rand()%v+i;
