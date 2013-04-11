@@ -1,6 +1,6 @@
 
-MPICC=mpic++
-MPIRUN=mpirun
+MPICC=/usr/mpi/gcc/openmpi-1.4.3/bin/mpic++
+MPIRUN=/usr/mpi/gcc/openmpi-1.4.3/bin/mpirun
     
 userprog: src/userprog.cpp src/mapReduce.h src/keyValue.h src/objs/chunkCreation.o src/objs/pugixml.o src/dataStruc.h src/objs/logging.o 
 	$(MPICC) -g -std=c++0x -pthread -c src/userprog.cpp -o src/objs/userprog.o

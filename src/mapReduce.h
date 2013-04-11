@@ -56,7 +56,7 @@ private:
     int numMaps,numReducers;
     int chunksCompleted, chunkSize;
     int isCluster;    
-    int curpos;
+    int curpos,kvlen;
     bool KeyValuesFinished,reduceCompleted;
 	DataType dataType;
 	
@@ -1381,7 +1381,7 @@ template <class K, class V>
 KMultiValue<K,V> MapReduce<K,V>::getKey()
 {    
    
-    int kvlen;
+    kvlen;
     vector<KValue<K,V> > KVList;
     while(1)
     {
@@ -1390,9 +1390,13 @@ KMultiValue<K,V> MapReduce<K,V>::getKey()
         {
             if (iskvDataLeft==1)
             {
-                logobj.localLog("Replenishing data buffer for reduce phase");
+                logobj.localLog("0:Replenishing data buffer for reduce phase");
+				logobj.localLog("0:current position"+itos(curpos));
+				logobj.localLog("0:Current size of kv string:"+itos((int)kvdata.length()));
                 kvdata=kvdata.substr(curpos);
+				logobj.localLog("0:size of kv string after substring:"+itos((int)kvdata.length()));	
                 iskvDataLeft= replenish(kvdata);
+				logobj.localLog("0:size of kv string after repleneshing:"+itos((int)kvdata.length()));
                 curpos=0;
                 kvlen=kvdata.length();
                 continue;
@@ -1407,13 +1411,17 @@ KMultiValue<K,V> MapReduce<K,V>::getKey()
             }
         }
         int length = atoi(kvdata.substr(curpos,pos).c_str());
-        if (kvlen<length+pos+1)
+        if (kvlen<length+(pos-curpos)+1)
         {
             if (iskvDataLeft==1)
             {
-                logobj.localLog("Replenishing data buffer for reduce phase");
+                logobj.localLog("1:Replenishing data buffer for reduce phase");
+				logobj.localLog("0:current position"+itos(curpos));
+				logobj.localLog("1:Current size of kv string:"+itos((int)kvdata.length()));
                 kvdata=kvdata.substr(curpos);
+				logobj.localLog("1:size of kv string after substring:"+itos((int)kvdata.length()));
                 iskvDataLeft= replenish(kvdata);
+				logobj.localLog("1:size of kv string after repleneshing:"+itos((int)kvdata.length()));
                 curpos=0;
                 kvlen=kvdata.length();
                 continue;
@@ -1443,12 +1451,12 @@ KMultiValue<K,V> MapReduce<K,V>::getKey()
             }
             else
             {
-                logobj.localLog("Sending KMV to user reduce function with ##key## "+itos(KVList[0].key)+" and no. of values:"+itos((int)KVList.size()));
+                //logobj.localLog("Sending KMV to user reduce function with ##key## "+itos(KVList[0].key)+" and no. of values:"+itos((int)KVList.size()) + " curpos :"+itos(curpos));
                 return kvTokmv(KVList);
             }
         }      
     }
-    logobj.localLog("Sending KMV to user reduce function with ##key## "+itos(KVList[0].key)+" and no. of values:"+itos((int)KVList.size()));
+    //logobj.localLog("Sending KMV to user reduce function with ##key## "+itos(KVList[0].key)+" and no. of values:"+itos((int)KVList.size())+ " curpos :"+itos(curpos));
     return kvTokmv(KVList);
 }
 
@@ -1457,6 +1465,9 @@ int MapReduce<K,V>::replenish(string &data)
 {
     ifstream fin;
     fin.open(kv->kvfile.c_str(), ios::in | ios::binary);
+	logobj.localLog("kv file obtained from map phase "+kv->kvfile);
+	logobj.localLog("kv file size "+itos(kvfilesize));
+
     fin.seekg (curKVposition, fin.beg);
     int blocksize = 1024*1024;
     //int blocksize = 64;
@@ -1464,6 +1475,7 @@ int MapReduce<K,V>::replenish(string &data)
     if (kvfilesize<=blocksize)
     {
         blocksize=kvfilesize;
+		//remove(kv->kvfile.c_str());
         rvalue=0;
     }
     if (curKVposition==0)
@@ -1475,14 +1487,13 @@ int MapReduce<K,V>::replenish(string &data)
         logobj.localLog("Current pos in final KV file :"+ itos(numread)+":"+itos((int)strlen(buf)+1));
         blocksize-=numread;
         kvfilesize-=numread;
-        curKVposition+=numread;
     }
     
     char *buffer= new char[blocksize];
     fin.read(buffer,blocksize);
     data=data+string(buffer,blocksize);
     
-    curKVposition+=blocksize;
+    curKVposition=fin.tellg();
     kvfilesize-=blocksize;
     
     logobj.localLog("Reading Key Value File in Reduce Phase : No. of bytes read = "+itos((int)fin.gcount()));
@@ -1691,7 +1702,7 @@ void MapReduce<K,V>::readAndAppend(char *buffer)
     
     ofstream fout;
     fout.open(outputFile.c_str(),ios::out | ios::binary |ios::app);
-    
+	logobj.localLog("Opening outfile file from remote process : "+string(strerror(errno))+" ["+itos(errno)+"]");
     if (length<=cutoff)
         cutoff=length;
     
