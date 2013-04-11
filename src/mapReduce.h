@@ -56,7 +56,7 @@ private:
     int numMaps,numReducers;
     int chunksCompleted, chunkSize;
     int isCluster;    
-    
+    int curpos;
     bool KeyValuesFinished,reduceCompleted;
 	DataType dataType;
 	
@@ -358,6 +358,7 @@ template <class K,class V>
 MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
 {
     debug=1;
+    curpos=0;
     mpi_initialized_mr=1;
     chunksCompleted=0;
     numReducers = numRed;
@@ -1387,31 +1388,43 @@ template <class K, class V>
 KMultiValue<K,V> MapReduce<K,V>::getKey()
 {    
    
+    int kvlen;
     vector<KValue<K,V> > KVList;
-    
     while(1)
     {
-        int pos = kvdata.find(':');
+        int pos = kvdata.find(':',curpos);
         if (pos==-1)
         {
             if (iskvDataLeft==1)
             {
                 logobj.localLog("Replenishing data buffer for reduce phase");
+                kvdata=kvdata.substr(curpos);
                 iskvDataLeft= replenish(kvdata);
+                curpos=0;
+                kvlen=kvdata.length();
                 continue;
             }
             else
             {
+                cout<<curpos<<endl;
+                cout<<kvdata.substr(curpos).length()<<endl;
                 KeyValuesFinished=true;
                 kvdata.clear();
                 break;
             }
         }
-        int length = atoi(kvdata.substr(0,pos).c_str());
-        if (kvdata.length()<length+pos+1)
+        int length = atoi(kvdata.substr(curpos,pos).c_str());
+        if (kvlen<length+pos+1)
         {
+            if (iskvDataLeft==1)
+            {
+                logobj.localLog("Replenishing data buffer for reduce phase");
+                kvdata=kvdata.substr(curpos);
                 iskvDataLeft= replenish(kvdata);
+                curpos=0;
+                kvlen=kvdata.length();
                 continue;
+            }            
         }
         string kvstring = kvdata.substr(pos+1,length);
         KValue<K,V> k1;
@@ -1420,14 +1433,20 @@ KMultiValue<K,V> MapReduce<K,V>::getKey()
         if (KVList.size()==0)
         {
             KVList.push_back(k1);
-            kvdata=kvdata.substr(pos+length+1);
+            
+            int curpos1=curpos;
+            curpos=pos+length+1;
+            kvlen-=(curpos-curpos1);
         }
         else 
         {   
             if (!kv->compkv(KVList.back(), k1) && !kv->compkv(k1,KVList.back()))
             {
                 KVList.push_back(k1);
-                kvdata=kvdata.substr(pos+length+1);
+                
+                int curpos1=curpos;
+                curpos=pos+length+1;
+                kvlen-=(curpos-curpos1);
             }
             else
             {

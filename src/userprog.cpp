@@ -32,7 +32,7 @@ void mfunc(vector<primaryKV> &kv, MapReduce<int,int> *mr)
 {
     int temp,v=1024*256;
     srand(time(NULL));
-    for(int i=1;i<=1000;i++)
+    for(int i=1;i<=3000;i++)
     {
         srand(time(NULL));
         temp = rand()%v+i;
@@ -49,9 +49,9 @@ void rfunc(MapReduce<int,int> *mr)
         int sum=0;
         for(int i=0;i<length;i++)
         {
-            //sum+=kmv.mv[i].value;
+            mr->raddkv(kmv.key,kmv.mv[i].value);
         }
-        mr->raddkv(kmv.key,sum);
-    }
+        
+    }   
     
 }
