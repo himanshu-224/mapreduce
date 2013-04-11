@@ -151,7 +151,7 @@ string outputFormat(KValue<K,V> k)
 
 void RecvData(queue<char> &buffer, int &completed, int recvRank, MPI_Comm comm, Logging &logobj);
 
-vector<string> filesystemsList(string dirFile,vector<string> dirList,vector<string> fileList);
+vector<string> filesystemsList(string dirFile,vector<string> dirList,vector<string> fileList,string ipListFile);
 
 vector<string> &split(const string &s, char delim, vector<string> &elems) {
     stringstream ss(s);
@@ -181,7 +181,7 @@ void uniqueInsert(vector<string>& iplist, string ip)
         iplist.push_back(ip);
 }
 
-vector<string> filesystemsList(string dirFile,vector<string> dirList,vector<string> fileList)
+vector<string> filesystemsList(string dirFile,vector<string> dirList,vector<string> fileList,string ipListFile)
 {
     int i;
     vector<string> iplist;
@@ -204,6 +204,16 @@ vector<string> filesystemsList(string dirFile,vector<string> dirList,vector<stri
         uniqueInsert(iplist,extractIP(dirName));
     }
     fin.close();
+
+    ifstream fin1 (ipListFile.c_str());
+    char str1[256];
+    while (fin1>>str1)
+    {      
+        string dirName(str1);
+        uniqueInsert(iplist,dirName);
+    }
+    fin1.close();
+
     return iplist;
 }    
 
@@ -417,7 +427,7 @@ MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
     {
         mkdir(mntDir.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
         logobj.localLog("Created mount directory : "+mntDir);
-        vector<string> iplist = filesystemsList(dirFile,dirList,fileList);
+        vector<string> iplist = filesystemsList(dirFile,dirList,fileList,ipListFile);
         
         string singleip;
         ifstream fin (ipListFile.c_str());
