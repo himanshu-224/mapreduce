@@ -138,14 +138,7 @@ string itos(char ch)
     string s=string(1,ch);
     return s;
 }
-string itos(float num)
-{
-    return static_cast<ostringstream*>( &(ostringstream() << num) )->str();
-}
-string itos(double num)
-{
-    return static_cast<ostringstream*>( &(ostringstream() << num) )->str();
-}
+
 
 template <class K,class V>
 string outputFormat(KValue<K,V> k)

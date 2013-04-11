@@ -87,10 +87,11 @@ public:
 
 //Implementation part
 
-string itos(int num);
-vector<string> split(string s, char delim);
-
 //### Helper Function declaration starts here
+string itos(int num);
+string itos(float num);
+string itos(double num);
+vector<string> split(string s, char delim);
 
 template <class K, class V>
 string getfilename(KeyValue<K,V> *,int);
@@ -102,6 +103,15 @@ template <class K>
 int getsize(K var);
 
 //### Helper Function defination starts here
+
+string itos(float num)
+{
+    return static_cast<ostringstream*>( &(ostringstream() << num) )->str();
+}
+string itos(double num)
+{
+    return static_cast<ostringstream*>( &(ostringstream() << num) )->str();
+}
 
 template <class K, class V>
 string getfilename(KeyValue<K,V> *obj,int rank)
@@ -390,6 +400,619 @@ inline bool KeyValue<string,string>::compkv(const KValue<string,string> & k1, co
         return lexicographical_compare(k1.value.begin(),k1.value.end(),k2.value.begin(),k2.value.end());
 }
 
+//Encode the KeyValue pair into human readable text
+template <>
+inline string KeyValue<char,char>::encodekv(KValue<char,char> k)
+{
+	string str = itos(k.ksize) + "#" + string(1,k.key) + "#" + itos(k.vsize) + "#" + string(1,k.value) + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<char,int>::encodekv(KValue<char,int> k)
+{
+	string str = itos(k.ksize) + "#" + string(1,k.key) + "#" + itos(k.vsize) + "#" + itos(k.value) + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<char,float>::encodekv(KValue<char,float> k)
+{
+	string str = itos(k.ksize) + "#" + string(1,k.key) + "#" + itos(k.vsize) + "#" + itos(k.value) + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<char,double>::encodekv(KValue<char,double> k)
+{
+	string str = itos(k.ksize) + "#" + string(1,k.key) + "#" + itos(k.vsize) + "#" + itos(k.value) + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<char,string>::encodekv(KValue<char,string> k)
+{
+	string str = itos(k.ksize) + "#" + string(1,k.key) + "#" + itos(k.vsize) + "#" + k.value + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<int,char>::encodekv(KValue<int,char> k)
+{
+	string str = itos(k.ksize) + "#" + itos(k.key) + "#" + itos(k.vsize) + "#" + string(1,k.value) + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<int,int>::encodekv(KValue<int,int>  k)
+{
+	string str = itos(k.ksize) + "#" + itos(k.key) + "#" + itos(k.vsize) + "#" + itos(k.value) + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<int,float>::encodekv(KValue<int,float>  k)
+{
+	string str = itos(k.ksize) + "#" + itos(k.key) + "#" + itos(k.vsize) + "#" + itos(k.value) + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<int,double>::encodekv(KValue<int,double>  k)
+{
+	string str = itos(k.ksize) + "#" + itos(k.key) + "#" + itos(k.vsize) + "#" + itos(k.value) + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<int,string>::encodekv(KValue<int,string>  k)
+{
+	string str = itos(k.ksize) + "#" + itos(k.key) + "#" + itos(k.vsize) + "#" + k.value + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<float,char>::encodekv(KValue<float,char> k)
+{
+	string str = itos(k.ksize) + "#" + itos(k.key) + "#" + itos(k.vsize) + "#" + string(1,k.value) + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<float,int>::encodekv(KValue<float,int>  k)
+{
+	string str = itos(k.ksize) + "#" + itos(k.key) + "#" + itos(k.vsize) + "#" + itos(k.value) + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<float,float>::encodekv(KValue<float,float>  k)
+{
+	string str = itos(k.ksize) + "#" + itos(k.key) + "#" + itos(k.vsize) + "#" + itos(k.value) + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<float,double>::encodekv(KValue<float,double>  k)
+{
+	string str = itos(k.ksize) + "#" + itos(k.key) + "#" + itos(k.vsize) + "#" + itos(k.value) + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<float,string>::encodekv(KValue<float,string>  k)
+{
+	string str = itos(k.ksize) + "#" + itos(k.key) + "#" + itos(k.vsize) + "#" + k.value + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<double,char>::encodekv(KValue<double,char> k)
+{
+	string str = itos(k.ksize) + "#" + itos(k.key) + "#" + itos(k.vsize) + "#" + string(1,k.value) + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<double,int>::encodekv(KValue<double,int>  k)
+{
+	string str = itos(k.ksize) + "#" + itos(k.key) + "#" + itos(k.vsize) + "#" + itos(k.value) + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<double,float>::encodekv(KValue<double,float>  k)
+{
+	string str = itos(k.ksize) + "#" + itos(k.key) + "#" + itos(k.vsize) + "#" + itos(k.value) + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<double,double>::encodekv(KValue<double,double>  k)
+{
+	string str = itos(k.ksize) + "#" + itos(k.key) + "#" + itos(k.vsize) + "#" + itos(k.value) + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<double,string>::encodekv(KValue<double,string>  k)
+{
+	string str = itos(k.ksize) + "#" + itos(k.key) + "#" + itos(k.vsize) + "#" + k.value + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<string,char>::encodekv(KValue<string,char> k)
+{
+	string str = itos(k.ksize) + "#" + k.key + "#" + itos(k.vsize) + "#" + string(1,k.value) + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<string,int>::encodekv(KValue<string,int>  k)
+{
+	string str = itos(k.ksize) + "#" + k.key + "#" + itos(k.vsize) + "#" + itos(k.value) + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<string,float>::encodekv(KValue<string,float>  k)
+{
+	string str = itos(k.ksize) + "#" + k.key + "#" + itos(k.vsize) + "#" + itos(k.value) + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<string,double>::encodekv(KValue<string,double>  k)
+{
+	string str = itos(k.ksize) + "#" + k.key + "#" + itos(k.vsize) + "#" + itos(k.value) + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+template <>
+inline string KeyValue<string,string>::encodekv(KValue<string,string>  k)
+{
+	string str = itos(k.ksize) + "#" + k.key + "#" + itos(k.vsize) + "#" + k.value + "\n";
+	str = itos((int)str.length())+":"+str;
+	return str;
+}
+
+template <>
+inline void KeyValue<char,char>::decodekv(KValue<char,char>  *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	k1->vsize = atoi(vstr[2].c_str());
+	if((k1->ksize!= sizeof(char))||(k1->vsize!=sizeof(char)))
+		logobj.error("Incompatible key or value size for char key and char value.Exiting!!");
+	k1->key = (char)vstr[1][0];
+	k1->value = (char)vstr[3][0];
+	vstr.clear();
+}
+template <>
+inline void KeyValue<char,int>::decodekv(KValue<char,int>  *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	k1->vsize = atoi(vstr[2].c_str());
+	if((k1->ksize!= sizeof(char))||(k1->vsize!=sizeof(int)))
+		logobj.error("Incompatible key or value size for char key and int value.Exiting!!");
+	k1->key = (char)vstr[1][0];
+	k1->value = atoi(vstr[3].substr(0,vstr[3].length()-1).c_str());
+	vstr.clear();
+}
+template <>
+inline void KeyValue<char,float>::decodekv(KValue<char,float>  *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	k1->vsize = atoi(vstr[2].c_str());
+	if((k1->ksize!= sizeof(char))||(k1->vsize!=sizeof(float)))
+		logobj.error("Incompatible key or value size for char key and float value.Exiting!!");
+	k1->key = (char)vstr[1][0];
+	k1->value = (float)atof(vstr[3].substr(0,vstr[3].length()-1).c_str());
+	vstr.clear();
+}
+template <>
+inline void KeyValue<char,double>::decodekv(KValue<char,double>  *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	k1->vsize = atoi(vstr[2].c_str());
+	if((k1->ksize!= sizeof(char))||(k1->vsize!=sizeof(double)))
+		logobj.error("Incompatible key or value size for char key and double value.Exiting!!");
+	k1->key = (char)vstr[1][0];
+	k1->value = atof(vstr[3].substr(0,vstr[3].length()-1).c_str());
+	vstr.clear();
+}
+template <>
+inline void KeyValue<char,string>::decodekv(KValue<char,string>  *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	k1->vsize = atoi(vstr[2].c_str());
+	if(k1->ksize!= sizeof(char))
+		logobj.error("Incompatible key or value size for char key and string value.Exiting!!");
+	k1->key = (char)vstr[1][0];
+	int i=3;
+	int size = k1->vsize;
+	k1->value.clear();
+	while(1){
+		if(vstr[i].length() > size){
+			k1->value+=vstr[i].substr(0,vstr[i].length()-1);
+			break;
+		}
+		k1->value+=vstr[i]+"#";
+		size=size-vstr[i].length()-1;
+		i++;
+	}
+	if(k1->vsize!=k1->value.length())
+		logobj.error("Incompatible key or value size for char key and string value.Exiting!!");
+	vstr.clear();
+}
+template <>
+inline void KeyValue<int,char>::decodekv(KValue<int,char>  *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	k1->vsize = atoi(vstr[2].c_str());
+	if((k1->ksize!= sizeof(int))||(k1->vsize!=sizeof(char)))
+		logobj.error("Incompatible key or value size for int key and char value.Exiting!!");
+	k1->key = atoi(vstr[1].c_str());
+	k1->value = (char)vstr[3][0];
+	vstr.clear();
+}
+template <>
+inline void KeyValue<int,int>::decodekv(KValue<int,int>  *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	k1->vsize = atoi(vstr[2].c_str());
+	if((k1->ksize!= sizeof(int))||(k1->vsize!=sizeof(int)))
+		logobj.error("Incompatible key or value size for int key and int value.Exiting!!");
+	k1->key = atoi(vstr[1].c_str());
+	k1->value = atoi(vstr[3].substr(0,vstr[3].length()-1).c_str());
+	vstr.clear();
+}
+template <>
+inline void KeyValue<int,float>::decodekv(KValue<int,float>  *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	k1->vsize = atoi(vstr[2].c_str());
+	if((k1->ksize!= sizeof(int))||(k1->vsize!=sizeof(float)))
+		logobj.error("Incompatible key or value size for int key and float value.Exiting!!");
+	k1->key = atoi(vstr[1].c_str());
+	k1->value = (float)atof(vstr[3].substr(0,vstr[3].length()-1).c_str());
+	vstr.clear();
+}
+template <>
+inline void KeyValue<int,double>::decodekv(KValue<int,double>  *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	k1->vsize = atoi(vstr[2].c_str());
+	if((k1->ksize!= sizeof(int))||(k1->vsize!=sizeof(double)))
+		logobj.error("Incompatible key or value size for int key and double value.Exiting!!");
+	k1->key = atoi(vstr[1].c_str());
+	k1->value = atof(vstr[3].substr(0,vstr[3].length()-1).c_str());
+	vstr.clear();
+}
+template <>
+inline void KeyValue<int,string>::decodekv(KValue<int,string>  *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	k1->vsize = atoi(vstr[2].c_str());
+	if(k1->ksize!= sizeof(int))
+		logobj.error("Incompatible key or value size for int key and string value.Exiting!!");
+	k1->key = atoi(vstr[1].c_str());
+	int i=3;
+	int size = k1->vsize;
+	k1->value.clear();
+	while(1){
+		if(vstr[i].length() > size){
+			k1->value+=vstr[i].substr(0,vstr[i].length()-1);
+			break;
+		}
+		k1->value+=vstr[i]+"#";
+		size=size-vstr[i].length()-1;
+		i++;
+	}
+	if(k1->vsize!=k1->value.length())
+		logobj.error("Incompatible key or value size for int key and string value.Exiting!!");
+	vstr.clear();
+}
+template <>
+inline void KeyValue<float,char>::decodekv(KValue<float,char>  *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	k1->vsize = atoi(vstr[2].c_str());
+	if((k1->ksize!= sizeof(float))||(k1->vsize!=sizeof(char)))
+		logobj.error("Incompatible key or value size for float key and char value.Exiting!!");
+	k1->key = (float)atof(vstr[1].c_str());
+	k1->value = (char)vstr[3][0];
+	vstr.clear();
+}
+template <>
+inline void KeyValue<float,int>::decodekv(KValue<float,int>  *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	k1->vsize = atoi(vstr[2].c_str());
+	if((k1->ksize!= sizeof(float))||(k1->vsize!=sizeof(int)))
+		logobj.error("Incompatible key or value size for float key and int value.Exiting!!");
+	k1->key = (float)atof(vstr[1].c_str());
+	k1->value = atoi(vstr[3].substr(0,vstr[3].length()-1).c_str());
+	vstr.clear();
+}
+template <>
+inline void KeyValue<float,float>::decodekv(KValue<float,float>  *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	k1->vsize = atoi(vstr[2].c_str());
+	if((k1->ksize!= sizeof(float))||(k1->vsize!=sizeof(float)))
+		logobj.error("Incompatible key or value size for float key and float value.Exiting!!");
+	k1->key = (float)atof(vstr[1].c_str());
+	k1->value = (float)atof(vstr[3].substr(0,vstr[3].length()-1).c_str());
+	vstr.clear();
+}
+template <>
+inline void KeyValue<float,double>::decodekv(KValue<float,double>  *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	k1->vsize = atoi(vstr[2].c_str());
+	if((k1->ksize!= sizeof(float))||(k1->vsize!=sizeof(double)))
+		logobj.error("Incompatible key or value size for float key and double value.Exiting!!");
+	k1->key = (float)atof(vstr[1].c_str());
+	k1->value = atof(vstr[3].substr(0,vstr[3].length()-1).c_str());
+	vstr.clear();
+}
+template <>
+inline void KeyValue<float,string>::decodekv(KValue<float,string>  *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	k1->vsize = atoi(vstr[2].c_str());
+	if(k1->ksize!= sizeof(float))
+		logobj.error("Incompatible key or value size for float key and string value.Exiting!!");
+	k1->key = (float)atof(vstr[1].c_str());
+	int i=3;
+	int size = k1->vsize;
+	k1->value.clear();
+	while(1){
+		if(vstr[i].length() > size){
+			k1->value+=vstr[i].substr(0,vstr[i].length()-1);
+			break;
+		}
+		k1->value+=vstr[i]+"#";
+		size=size-vstr[i].length()-1;
+		i++;
+	}
+	if(k1->vsize!=k1->value.length())
+		logobj.error("Incompatible key or value size for float key and string value.Exiting!!");
+	vstr.clear();
+}
+template <>
+inline void KeyValue<double,char>::decodekv(KValue<double,char>  *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	k1->vsize = atoi(vstr[2].c_str());
+	if((k1->ksize!= sizeof(double))||(k1->vsize!=sizeof(char)))
+		logobj.error("Incompatible key or value size for double key and char value.Exiting!!");
+	k1->key = atof(vstr[1].c_str());
+	k1->value = (char)vstr[3][0];
+	vstr.clear();
+}
+template <>
+inline void KeyValue<double,int>::decodekv(KValue<double,int>  *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	k1->vsize = atoi(vstr[2].c_str());
+	if((k1->ksize!= sizeof(double))||(k1->vsize!=sizeof(int)))
+		logobj.error("Incompatible key or value size for double key and int value.Exiting!!");
+	k1->key = atof(vstr[1].c_str());
+	k1->value = atoi(vstr[3].substr(0,vstr[3].length()-1).c_str());
+	vstr.clear();
+}
+template <>
+inline void KeyValue<double,float>::decodekv(KValue<double,float>  *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	k1->vsize = atoi(vstr[2].c_str());
+	if((k1->ksize!= sizeof(double))||(k1->vsize!=sizeof(float)))
+		logobj.error("Incompatible key or value size for double key and float value.Exiting!!");
+	k1->key = atof(vstr[1].c_str());
+	k1->value = (float)atof(vstr[3].substr(0,vstr[3].length()-1).c_str());
+	vstr.clear();
+}
+template <>
+inline void KeyValue<double,double>::decodekv(KValue<double,double>  *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	k1->vsize = atoi(vstr[2].c_str());
+	if((k1->ksize!= sizeof(double))||(k1->vsize!=sizeof(double)))
+		logobj.error("Incompatible key or value size for double key and double value.Exiting!!");
+	k1->key = atof(vstr[1].c_str());
+	k1->value = atof(vstr[3].substr(0,vstr[3].length()-1).c_str());
+	vstr.clear();
+}
+template <>
+inline void KeyValue<double,string>::decodekv(KValue<double,string>  *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	k1->vsize = atoi(vstr[2].c_str());
+	if(k1->ksize!= sizeof(double))
+		logobj.error("Incompatible key or value size for double key and string value.Exiting!!");
+	k1->key = atof(vstr[1].c_str());
+	int i=3;
+	int size = k1->vsize;
+	k1->value.clear();
+	while(1){
+		if(vstr[i].length() > size){
+			k1->value+=vstr[i].substr(0,vstr[i].length()-1);
+			break;
+		}
+		k1->value+=vstr[i]+"#";
+		size=size-vstr[i].length()-1;
+		i++;
+	}
+	if(k1->vsize!=k1->value.length())
+		logobj.error("Incompatible key or value size for double key and string value.Exiting!!");
+	vstr.clear();
+}
+template <>
+inline void KeyValue<string,char>::decodekv(KValue<string,char> *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	int i =1;
+	int size = k1->ksize;
+	k1->key.clear();
+	while(1){
+		if(vstr[i].length() >= size){
+			k1->key+=vstr[i];
+			i++;
+			break;
+		}
+		k1->key+=vstr[i]+"#";
+		size=size-vstr[i].length()-1;
+		i++;
+	}
+	if(k1->ksize!=k1->key.length())
+		logobj.error("Incompatible key or value size for string key and char value.Exiting!!");
+	k1->vsize = atoi(vstr[i].c_str());
+	if(k1->vsize!=sizeof(char))
+		logobj.error("Incompatible key or value size for string key and char value.Exiting!!");
+	i++;
+	k1->value = (char)vstr[i][0];
+	vstr.clear();
+}
+template <>
+inline void KeyValue<string,int>::decodekv(KValue<string,int> *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	int i =1;
+	int size = k1->ksize;
+	k1->key.clear();
+	while(1){
+		if(vstr[i].length() >= size){
+			k1->key+=vstr[i];
+			i++;
+			break;
+		}
+		k1->key+=vstr[i]+"#";
+		size=size-vstr[i].length()-1;
+		i++;
+	}
+	if(k1->ksize!=k1->key.length())
+		logobj.error("Incompatible key or value size for string key and int value.Exiting!!");
+	k1->vsize = atoi(vstr[i].c_str());
+	if(k1->vsize!=sizeof(int))
+		logobj.error("Incompatible key or value size for string key and int value.Exiting!!");
+	i++;
+	k1->value = atoi(vstr[i].substr(0,vstr[i].length()-1).c_str());
+	vstr.clear();
+}
+template <>
+inline void KeyValue<string,float>::decodekv(KValue<string,float> *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	int i =1;
+	int size = k1->ksize;
+	k1->key.clear();
+	while(1){
+		if(vstr[i].length() >= size){
+			k1->key+=vstr[i];
+			i++;
+			break;
+		}
+		k1->key+=vstr[i]+"#";
+		size=size-vstr[i].length()-1;
+		i++;
+	}
+	if(k1->ksize!=k1->key.length())
+		logobj.error("Incompatible key or value size for string key and float value.Exiting!!");
+	k1->vsize = atoi(vstr[i].c_str());
+	if(k1->vsize!=sizeof(float))
+		logobj.error("Incompatible key or value size for string key and float value.Exiting!!");
+	i++;
+	k1->value = (float)atof(vstr[i].substr(0,vstr[i].length()-1).c_str());
+	vstr.clear();
+}
+template <>
+inline void KeyValue<string,double>::decodekv(KValue<string,double> *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	int i =1;
+	int size = k1->ksize;
+	k1->key.clear();
+	while(1){
+		if(vstr[i].length() >= size){
+			k1->key+=vstr[i];
+			i++;
+			break;
+		}
+		k1->key+=vstr[i]+"#";
+		size=size-vstr[i].length()-1;
+		i++;
+	}
+	if(k1->ksize!=k1->key.length())
+		logobj.error("Incompatible key or value size for string key and double value.Exiting!!");
+	k1->vsize = atoi(vstr[i].c_str());
+	if(k1->vsize!=sizeof(double))
+		logobj.error("Incompatible key or value size for string key and double value.Exiting!!");
+	i++;
+	k1->value = atof(vstr[i].substr(0,vstr[i].length()-1).c_str());
+	vstr.clear();
+}
+template <>
+inline void KeyValue<string,string>::decodekv(KValue<string,string> *k1, string str)
+{
+	vector<string> vstr = split(str,'#');
+	k1->ksize = atoi(vstr[0].c_str());
+	int i =1;
+	int size = k1->ksize;
+	k1->key.clear();
+	while(1){
+		if(vstr[i].length() >= size){
+			k1->key+=vstr[i];
+			i++;
+			break;
+		}
+		k1->key+=vstr[i]+"#";
+		size=size-vstr[i].length()-1;
+		i++;
+	}
+	if(k1->ksize!=k1->key.length())
+		logobj.error("Incompatible key or value size for string key and string value.Exiting!!");
+	k1->vsize = atoi(vstr[i].c_str());
+	i++;
+	size = k1->vsize;
+	while(1){
+		if(vstr[i].length() > size){
+			k1->value+=vstr[i].substr(0,vstr[i].length()-1);
+			break;
+		}
+		k1->value+=vstr[i]+"#";
+		size=size-vstr[i].length()-1;
+		i++;
+	}
+	if(k1->vsize!=k1->value.length())
+		logobj.error("Incompatible key or value size for string key and string value.Exiting!!");
+	vstr.clear();
+}
 //Function to get the encoded string for each keyvalue pair from a file
 template <class K, class V>
 string KeyValue<K,V>::getkvstr(ifstream& filep)
@@ -657,25 +1280,6 @@ int KeyValue<K,V>::defaulthash(K key, int nump)
 	hash<K> hash_fn;
 	size_t v = hash_fn(key)%nump + 1;
 	return (int)v;
-}
-
-template <>
-inline string KeyValue<int,int>::encodekv(KValue<int,int>  k)
-{
-	string str = itos(k.ksize) + "#" + itos(k.key) + "#" + itos(k.vsize) + "#" + itos(k.value) + "\n";
-	str = itos(str.length())+":"+str;
-	return str;
-}
-
-template <>
-inline void KeyValue<int,int>::decodekv(KValue<int,int>  *k1, string str)
-{
-	vector<string> vstr = split(str,'#');
-	k1->ksize = atoi(vstr[0].c_str());
-	k1->key = atoi(vstr[1].c_str());
-	k1->vsize = atoi(vstr[2].c_str());
-	k1->value = atoi(vstr[3].substr(0,vstr[3].length()-1).c_str());
-    vstr.clear();
 }
 
 //Receive key value pair from other process
