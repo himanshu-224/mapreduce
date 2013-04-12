@@ -25,13 +25,14 @@ class createChunks
 		vector<string> fileList;
 		vector<string> dirList;
 		int debug;
+        int nprocs;
 		
 		vector<NodeSpecs> nodes;
         vector<NodeChunkInfo> nodeChunks;
 		
 	public:      
 	
-	createChunks(int csize,string str,DataType type,string separator,string split, string dir, vector<string> fileList, vector<string> dirList, int debug);
+	createChunks(int csize,string str,DataType type,string separator,string split, string dir, vector<string> fileList, vector<string> dirList, int debug, int nprocs);
 	
     void listSingleDir(string dirFile);
 	void listDir(string dirFile, string mntDir);

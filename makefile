@@ -1,10 +1,22 @@
 
-MPICC=/usr/mpi/gcc/openmpi-1.4.3/bin/mpic++
-MPIRUN=/usr/mpi/gcc/openmpi-1.4.3/bin/mpirun
+MPICC=mpic++
+MPIRUN=mpirun
     
-userprog: src/userprog.cpp src/mapReduce.h src/keyValue.h src/objs/chunkCreation.o src/objs/pugixml.o src/dataStruc.h src/objs/logging.o 
-	$(MPICC) -g -std=c++0x -pthread -c src/userprog.cpp -o src/objs/userprog.o
-	$(MPICC) -g -std=c++0x -pthread -o mapreduce1 src/objs/userprog.o src/mapReduce.h src/objs/chunkCreation.o src/objs/pugixml.o src/dataStruc.h src/objs/logging.o src/keyValue.h
+pname=wordcount
+
+
+    
+$(pname): src/$(pname).cpp src/mapReduce.h src/keyValue.h src/objs/chunkCreation.o src/objs/pugixml.o src/dataStruc.h src/objs/logging.o 
+	$(MPICC) -g -std=c++0x -pthread -c src/$(pname).cpp -o src/objs/$(pname).o
+	$(MPICC) -g -std=c++0x -pthread -o mapreduce1 src/objs/$(pname).o src/mapReduce.h src/objs/chunkCreation.o src/objs/pugixml.o src/dataStruc.h src/objs/logging.o src/keyValue.h
+	
+compilerun:src/$(pname).cpp src/mapReduce.h src/keyValue.h src/objs/chunkCreation.o src/objs/pugixml.o src/dataStruc.h src/objs/logging.o 
+	$(MPICC) -g -std=c++0x -pthread -c src/$(pname).cpp -o src/objs/$(pname).o
+	$(MPICC) -g -std=c++0x -pthread -o mapreduce1 src/objs/$(pname).o src/mapReduce.h src/objs/chunkCreation.o src/objs/pugixml.o src/dataStruc.h src/objs/logging.o src/keyValue.h
+	sudo $(MPIRUN) -np 4 ./mapreduce1 dirfile=dirList.txt type=binary  
+	
+runprog:	
+	sudo $(MPIRUN) -np 4 ./mapreduce1 dirfile=dirList.txt type=binary 
 	
 sort: src/sortnumbers.cpp src/mapReduce.h src/keyValue.h src/objs/chunkCreation.o src/objs/pugixml.o src/dataStruc.h src/objs/logging.o 	
 	$(MPICC) -g -std=c++0x -pthread -c src/sortnumbers.cpp -o src/objs/sortnumbers.o
@@ -14,8 +26,7 @@ wordcount: src/wordcount.cpp src/mapReduce.h src/keyValue.h src/objs/chunkCreati
 	$(MPICC) -g -std=c++0x -pthread -c src/wordcount.cpp -o src/objs/wordcount.o
 	$(MPICC) -g -std=c++0x -pthread -o mapreduce1 src/objs/wordcount.o src/mapReduce.h src/objs/chunkCreation.o src/objs/pugixml.o src/dataStruc.h src/objs/logging.o src/keyValue.h	
 	   
-runprog: 
-    $(MPIRUN) -g -np 8 ./mapreduce dirfile=dirList.txt type=binary    
+ 
 	
 mapreduce : src/objs/mapReduce.o src/objs/chunkCreation.o src/objs/pugixml.o src/dataStruc.h
 	$(MPICC) -g -o mapreduce src/objs/mapReduce.o src/objs/chunkCreation.o src/objs/pugixml.o src/dataStruc.h

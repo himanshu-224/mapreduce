@@ -121,29 +121,43 @@ void readAndAppend(char*);
 
 /*Start of Implementation Part*/
 
-string itos(int num);
-string itos(string str);
-string itos(char ch);
-string itos(float num);
-string itos(double num);
+/*string to_string(int num);
+string to_string(string str);
+string to_string(char ch);
+string to_string(float num);
+string to_string(double num);
+*/
+
 string extractIP(string str);
 
-string itos(string str)
-{
-    return str;
-}
+string to_string(string s);
+string to_string(char* s);
+string to_string(char ch);
 
-string itos(char ch)
-{    
-    string s=string(1,ch);
+string to_string(string s)
+{
     return s;
 }
+string to_string(char* s)
+{
+    return string(s);
+}
 
+string to_string(char ch)
+{
+    string s=string(1,ch);
+    return s;    
+}
 
 template <class K,class V>
 string outputFormat(KValue<K,V> k)
 {
-    string str = itos(k.key)+"\t"+itos(k.value)+"\n";
+    /*char buf[20];
+    char buf1[20];
+    sprintf(buf,"%d",k.key);
+    sprintf(buf1,"%d",k.value);
+    string str= string(buf)+'\t'+string(buf1)+'\n';*/
+    string str = to_string(k.key)+"\t"+to_string(k.value)+"\n";
     return str;
 }
 
@@ -269,13 +283,13 @@ void MapReduce<K,V>::sendDefaults()
     arr[0]=homedir.length();
     arr[1]=globalchunkMapFile.length(); 
     arr[2]=mntDir.length();
-    arr[3]=itos(chunkSize).length();
-    arr[4]=itos(isCluster).length();
+    arr[3]=to_string(chunkSize).length();
+    arr[4]=to_string(isCluster).length();
     arr[5]=logDir.length();
     arr[6]=kvDir.length();
     arr[7]=exportDir.length();
     
-    string str = homedir+globalchunkMapFile+mntDir+itos(chunkSize)+itos(isCluster)+logDir+kvDir+exportDir;
+    string str = homedir+globalchunkMapFile+mntDir+to_string(chunkSize)+to_string(isCluster)+logDir+kvDir+exportDir;
     char *buffer = strdup(str.c_str());
     
     for(int i=1;i<nprocs;i++){
@@ -405,7 +419,7 @@ MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
         receiveDefaults();
     }
     
-    localOutputFile="localOutfile_rank_"+itos(rank);
+    localOutputFile="localOutfile_rank_"+to_string(rank);
     
     mkdir(logDir.c_str(),S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH); //created directory for logs
     logobj=Logging(logDir,rank,debug);
@@ -463,7 +477,7 @@ MapReduce<K,V>::MapReduce(int argc, char** argv, int numRed)
                     if (rvalue==-1 && errno==EBUSY)
                          logobj.localLog("Directory already mounted");
                     else if (rvalue==-1)
-                         logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+itos(errno)+"]"+"\n...Exiting");  
+                         logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+to_string(errno)+"]"+"\n...Exiting");  
 						  
                 }
             }   
@@ -559,7 +573,7 @@ void MapReduce<K,V>::parseArguments(int argc, char **argv)
 template <class K,class V>
 void MapReduce<K,V>::getChunks()
 {
-    createChunks chunkObj = createChunks(chunkSize,dirFile,dataType,separator,fsplit, mntDir, fileList,dirList, debug);
+    createChunks chunkObj = createChunks(chunkSize,dirFile,dataType,separator,fsplit, mntDir, fileList,dirList, debug,nprocs);
     chunkObj.generateChunkMap(nodeInfoFile,ipListFile,chunkMapFile);
     chunkObj.printStats(); 
 
@@ -669,7 +683,7 @@ void MapReduce<K,V>::sendRankMapping()
             if (rvalue==-1 && errno==EBUSY)
                  logobj.localLog("Directory already mounted");
             else if (rvalue==-1)
-                 logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+itos(errno)+"]"+"\n...Exiting");    
+                 logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+to_string(errno)+"]"+"\n...Exiting");    
         }
     }
     getProcChunks(nodeProcs.size(),mypos,myip);
@@ -754,7 +768,7 @@ void MapReduce<K,V>::getProcChunks(int tprocs, int mypos, string myip)
             if (rvalue==-1 && errno==EBUSY)
                  logobj.localLog("Directory already mounted");
             else if (rvalue==-1)
-                 logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+itos(errno)+"]"+"\n...Exiting");    
+                 logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+to_string(errno)+"]"+"\n...Exiting");    
         }
     }
 }
@@ -806,7 +820,7 @@ void MapReduce<K,V>::islocal()
          if (chunks[i].local==1)
              chunksObtained.push(i);
      }
-     //logobj.localLog("Local chunks obtained "+itos(chunksObtained.size()));
+     //logobj.localLog("Local chunks obtained "+to_string(chunksObtained.size()));
          
 }
 
@@ -844,16 +858,16 @@ vector<primaryKV> MapReduce<K,V>::createChunk(int front)
         
         if (pkv.value.length()!=fin.gcount())
         {
-            logobj.localLog("\tFor chunk "+itos(chunks[front].number)+ ", for part "+itos(i+1)+",bytes read NOTEQUALS gcount");
+            logobj.localLog("\tFor chunk "+to_string(chunks[front].number)+ ", for part "+to_string(i+1)+",bytes read NOTEQUALS gcount");
         }
         
-        //logobj.localLog("\tSize of chunk "+itos(chunks[front].number)+ " required, part "+itos(i+1)+" = "+itos(length));
-        //logobj.localLog("\tSize of chunk "+itos(chunks[front].number)+ " created, part "+itos(i+1)+" = "+itos((int)pkv.value.length()));        
-        //logobj.localLog("\tSize of chunk "+itos(chunks[front].number)+ " read, part "+itos(i+1)+" = "+itos(fin.gcount()));
+        //logobj.localLog("\tSize of chunk "+to_string(chunks[front].number)+ " required, part "+to_string(i+1)+" = "+to_string(length));
+        //logobj.localLog("\tSize of chunk "+to_string(chunks[front].number)+ " created, part "+to_string(i+1)+" = "+to_string((int)pkv.value.length()));        
+        //logobj.localLog("\tSize of chunk "+to_string(chunks[front].number)+ " read, part "+to_string(i+1)+" = "+to_string(fin.gcount()));
         fin.close();
     }    
-    //logobj.localLog("Size of chunk "+itos(chunks[front].number)+ " required  = "+itos(chunks[front].size));
-    //logobj.localLog("Size of chunk "+itos(chunks[front].number)+ " created  = "+itos(crsize));
+    //logobj.localLog("Size of chunk "+to_string(chunks[front].number)+ " required  = "+to_string(chunks[front].size));
+    //logobj.localLog("Size of chunk "+to_string(chunks[front].number)+ " created  = "+to_string(crsize));
     return chunk;
 }
 
@@ -863,7 +877,7 @@ void MapReduce<K,V>::fetchdata(int index1, int index2, int filenum)
     ifstream fin;
     ofstream fout;
     FileInfo fi=chunks[index1].chunk[index2];
-    string outfile="/tmp/rank_"+itos(rank)+"chunk_"+itos(chunks[index1].number)+"file_"+itos(filenum);
+    string outfile="/tmp/rank_"+to_string(rank)+"chunk_"+to_string(chunks[index1].number)+"file_"+to_string(filenum);
     fi.localpath=outfile;
     
     fin.open(fi.path.c_str(), ios::in);
@@ -880,7 +894,7 @@ void MapReduce<K,V>::fetchdata(int index1, int index2, int filenum)
     {
         char *buffer= new char[cutoff];
         fin.read(buffer,cutoff);
-        logobj.localLog("Chunk "+itos(chunks[index1].number)+" : No. of bytes read = "+itos((int)fin.gcount()));
+        logobj.localLog("Chunk "+to_string(chunks[index1].number)+" : No. of bytes read = "+to_string((int)fin.gcount()));
         fout.write(buffer,cutoff);
         
         length-=cutoff;
@@ -921,7 +935,7 @@ void MapReduce<K,V>::fetchNonLocal()
          }
          
      }
-     logobj.localLog("Chunks obtained "+itos((int)chunksObtained.size()));
+     logobj.localLog("Chunks obtained "+to_string((int)chunksObtained.size()));
 }
 
 template <class K,class V>
@@ -974,7 +988,7 @@ void MapReduce<K,V>::mountDir()
             if (rvalue==-1 && errno==EBUSY)
                  logobj.localLog("Directory already mounted");
             else if (rvalue==-1)
-                 logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+itos(errno)+"]"+"\n...Exiting");    
+                 logobj.error("Could not mount directory "+src+" at "+dest+"\nError : "+strerror(errno) +"["+to_string(errno)+"]"+"\n...Exiting");    
         }
 
      }     
@@ -1021,7 +1035,7 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
     
     int totalChunks=chunks.size();
     string log;
-    logobj.localLog("Total Chunks "+itos(totalChunks));
+    logobj.localLog("Total Chunks "+to_string(totalChunks));
     while(chunksCompleted!=totalChunks)
     {
         if (!chunksObtained.empty())
@@ -1030,7 +1044,7 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
             vector<primaryKV> chunk=createChunk(front);
             chunksObtained.pop();
             chunksCompleted++;
-            log = "Start of map task for chunk no:" +itos(chunksCompleted);
+            log = "Start of map task for chunk no:" +to_string(chunksCompleted);
             logobj.localLog(log);
             log.clear();
             /*Insert Map Code Here*/
@@ -1049,9 +1063,9 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
     for(int i =0; i< numReducers; i++)
     {
         int rvalue = MPI_Send(NULL,0,MPI_INT,i,END_MAP,comm);
-        logobj.localLog("Send signal for end of map phase to rank:"+itos(i));
+        logobj.localLog("Send signal for end of map phase to rank:"+to_string(i));
         if (rvalue==-1)
-            logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
+            logobj.localLog("Error : "+string(strerror(errno)) +"["+to_string(errno)+"]");
     }
    if (rank<numReducers){
        t2.join();
@@ -1061,7 +1075,7 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<primaryKV>&,
     double ftime = MPI_Wtime();
     double difftime=ftime-stime;
     cout<<"Rank :"<<rank<<" Time taken in Map phase : "<<difftime<<endl;
-    logobj.localLog("Time taken in map phase "+itos(difftime));   
+    logobj.localLog("Time taken in map phase "+to_string(difftime));   
     logobj.localLog("End of MAP PHASE");
     return 1;
 }
@@ -1092,7 +1106,7 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<string>,  Ma
     thread t1=thread(threadFunc1<K,V>,this);
     
     int totalChunks=chunks.size();
-    logobj.localLog("Total Chunks "+itos(totalChunks));
+    logobj.localLog("Total Chunks "+to_string(totalChunks));
     while(chunksCompleted!=totalChunks)
     {
         if (!chunksObtained.empty())
@@ -1112,7 +1126,7 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<string>,  Ma
                 else
                     pathList.push_back(fileList[i].localpath);
             }
-            log = "Start of map task for chunk no:" +itos(chunksCompleted);
+            log = "Start of map task for chunk no:" +to_string(chunksCompleted);
             logobj.localLog(log);
             log.clear();
             mapfunc(pathList,this);
@@ -1167,7 +1181,7 @@ int MapReduce<K,V>::map(void(*mapfunc)(int nprocs, int rank,  MapReduce<K,V> *),
         t3.join();
     }
     
-    return 1;log = "Start of map task for chunk no:" +itos(chunksCompleted);
+    return 1;log = "Start of map task for chunk no:" +to_string(chunksCompleted);
             logobj.localLog(log);
             log.clear();
 }
@@ -1252,7 +1266,7 @@ int MapReduce<K,V>::map(void(*genfunc)(queue<char>&,int&), void(*mapfunc)(primar
             if (chunk.compare("")!=0)
             {
                 primaryKV chk;
-                chk.key=itos((nprocs-1)*i+rank);
+                chk.key=to_string((nprocs-1)*i+rank);
                 chk.value=chunk;
                 mapfunc(chk,this);
                 finalisemap(hashfunc);
@@ -1400,13 +1414,13 @@ KMultiValue<K,V> MapReduce<K,V>::getKey()
         {
             if (iskvDataLeft==1)
             {
-                logobj.localLog("0:Replenishing data buffer for reduce phase");
-				logobj.localLog("0:current position"+itos(curpos));
-				logobj.localLog("0:Current size of kv string:"+itos((int)kvdata.length()));
+                /*logobj.localLog("0:Replenishing data buffer for reduce phase");
+				logobj.localLog("0:current position"+to_string(curpos));
+				logobj.localLog("0:Current size of kv string:"+to_string((int)kvdata.length()));*/
                 kvdata=kvdata.substr(curpos);
-				logobj.localLog("0:size of kv string after substring:"+itos((int)kvdata.length()));	
+				//logobj.localLog("0:size of kv string after substring:"+to_string((int)kvdata.length()));	
                 iskvDataLeft= replenish(kvdata);
-				logobj.localLog("0:size of kv string after repleneshing:"+itos((int)kvdata.length()));
+				//logobj.localLog("0:size of kv string after repleneshing:"+to_string((int)kvdata.length()));
                 curpos=0;
                 kvlen=kvdata.length();
                 continue;
@@ -1425,13 +1439,13 @@ KMultiValue<K,V> MapReduce<K,V>::getKey()
         {
             if (iskvDataLeft==1)
             {
-                logobj.localLog("1:Replenishing data buffer for reduce phase");
-				logobj.localLog("0:current position"+itos(curpos));
-				logobj.localLog("1:Current size of kv string:"+itos((int)kvdata.length()));
+                /*logobj.localLog("1:Replenishing data buffer for reduce phase");
+				logobj.localLog("0:current position"+to_string(curpos));
+				logobj.localLog("1:Current size of kv string:"+to_string((int)kvdata.length()));*/
                 kvdata=kvdata.substr(curpos);
-				logobj.localLog("1:size of kv string after substring:"+itos((int)kvdata.length()));
+				//logobj.localLog("1:size of kv string after substring:"+to_string((int)kvdata.length()));
                 iskvDataLeft= replenish(kvdata);
-				logobj.localLog("1:size of kv string after repleneshing:"+itos((int)kvdata.length()));
+				//logobj.localLog("1:size of kv string after repleneshing:"+to_string((int)kvdata.length()));
                 curpos=0;
                 kvlen=kvdata.length();
                 continue;
@@ -1461,12 +1475,12 @@ KMultiValue<K,V> MapReduce<K,V>::getKey()
             }
             else
             {
-                //logobj.localLog("Sending KMV to user reduce function with ##key## "+itos(KVList[0].key)+" and no. of values:"+itos((int)KVList.size()) + " curpos :"+itos(curpos));
+                //logobj.localLog("Sending KMV to user reduce function with ##key## "+to_string(KVList[0].key)+" and no. of values:"+to_string((int)KVList.size()) + " curpos :"+to_string(curpos));
                 return kvTokmv(KVList);
             }
         }      
     }
-    //logobj.localLog("Sending KMV to user reduce function with ##key## "+itos(KVList[0].key)+" and no. of values:"+itos((int)KVList.size())+ " curpos :"+itos(curpos));
+    //logobj.localLog("Sending KMV to user reduce function with ##key## "+to_string(KVList[0].key)+" and no. of values:"+to_string((int)KVList.size())+ " curpos :"+to_string(curpos));
     return kvTokmv(KVList);
 }
 
@@ -1476,25 +1490,25 @@ int MapReduce<K,V>::replenish(string &data)
     ifstream fin;
     fin.open(kv->kvfile.c_str(), ios::in | ios::binary);
 	logobj.localLog("kv file obtained from map phase "+kv->kvfile);
-	logobj.localLog("kv file size "+itos(kvfilesize));
+	logobj.localLog("kv file size "+to_string(kvfilesize));
 
     fin.seekg (curKVposition, fin.beg);
-    int blocksize = 1024*1024;
+    int blocksize = 1024;
     //int blocksize = 64;
     int rvalue=1;
     if (kvfilesize<=blocksize)
     {
         blocksize=kvfilesize;
-		//remove(kv->kvfile.c_str());
+		remove(kv->kvfile.c_str());
         rvalue=0;
     }
     if (curKVposition==0)
     {
         char buf[20];
         fin.getline(buf,20);
-        logobj.localLog("No. of keys to be read from final KV file :"+ itos(buf));
+        logobj.localLog("No. of keys to be read from final KV file :"+ string(buf));
         int numread=fin.tellg();
-        logobj.localLog("Current pos in final KV file :"+ itos(numread)+":"+itos((int)strlen(buf)+1));
+        logobj.localLog("Current pos in final KV file :"+ to_string(numread)+":"+to_string((int)strlen(buf)+1));
         blocksize-=numread;
         kvfilesize-=numread;
     }
@@ -1506,7 +1520,7 @@ int MapReduce<K,V>::replenish(string &data)
     curKVposition=fin.tellg();
     kvfilesize-=blocksize;
     
-    logobj.localLog("Reading Key Value File in Reduce Phase : No. of bytes read = "+itos((int)fin.gcount()));
+    logobj.localLog("Reading Key Value File in Reduce Phase : No. of bytes read = "+to_string((int)fin.gcount()));
    
     fin.close();
     delete [] buffer;
@@ -1528,7 +1542,7 @@ void MapReduce<K,V>::finalKV(string(*outfunc)(KValue<K,V> k))
 {   
     string str="";
     double stime = MPI_Wtime();
-    int send_limit = 1024*1024;
+    int send_limit = 0;
     string localpath = homedir+exportDir+localOutputFile;
     ofstream fout;
     fout.open(localpath.c_str(), ios::out | ios::binary);
@@ -1537,16 +1551,15 @@ void MapReduce<K,V>::finalKV(string(*outfunc)(KValue<K,V> k))
     {
         if(!finalQueue.empty())
         {
-            str=str+outfunc(finalQueue.front());
+            str=outfunc(finalQueue.front());
             finalQueue.pop();
         }
         else
             usleep(10);
         if (str.length() > send_limit)
         {
-            int length=str.length();
             char *buffer = strdup(str.c_str());
-            fout.write(buffer,length);
+            fout.write(buffer,str.length());
             str.clear();
         }
     }
@@ -1554,9 +1567,8 @@ void MapReduce<K,V>::finalKV(string(*outfunc)(KValue<K,V> k))
     int length=str.length();
     if (length>0)
     {
-        int length=str.length();
         char *buffer = strdup(str.c_str());
-        fout.write(buffer,length);
+        fout.write(buffer,str.length());
         str.clear();
     }
     fout.close();
@@ -1564,7 +1576,7 @@ void MapReduce<K,V>::finalKV(string(*outfunc)(KValue<K,V> k))
     double ftime = MPI_Wtime();
     double difftime=ftime-stime;
     cout<<"Rank :"<<rank<<" Time taken for local reduce : "<<difftime<<endl;
-    logobj.localLog("Time taken for local reduce : "+itos(difftime));
+    logobj.localLog("Time taken for local reduce : "+to_string(difftime));
 
     
     logobj.localLog("Finished writing output key/value pairs to local file:"+localpath);
@@ -1577,7 +1589,7 @@ void MapReduce<K,V>::finalKV(string(*outfunc)(KValue<K,V> k))
     MPI_Status status;
     MPI_Recv(NULL,0,MPI_INT,0,OK_TO_SEND,comm,&status);
     if(rvalue!=0)
-        logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");            
+        logobj.localLog("Error : "+string(strerror(errno)) +"["+to_string(errno)+"]");            
         
     logobj.localLog("Received OK_TO_SEND from rank 0");
     
@@ -1593,11 +1605,11 @@ void MapReduce<K,V>::finalKV(string(*outfunc)(KValue<K,V> k))
     
     rvalue=MPI_Send(&length,1,MPI_INT,0,FILE_PATH_LENGTH,comm);
     if(rvalue!=0)
-        logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");            
+        logobj.localLog("Error : "+string(strerror(errno)) +"["+to_string(errno)+"]");            
     
     rvalue=MPI_Send(filename,length,MPI_CHAR,0,FILE_PATH,comm);
     if(rvalue!=0)
-        logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");            
+        logobj.localLog("Error : "+string(strerror(errno)) +"["+to_string(errno)+"]");            
 }
 template <class K,class V>
 void sendFinalKV(MapReduce<K,V>* mr, string(*outfunc)(KValue<K,V> k))
@@ -1615,7 +1627,7 @@ template <class K,class V>
 void MapReduce<K,V>::rFinalKV(string(*outfunc)(KValue<K,V> k))
 {
     string str="";
-    int send_limit = 1024*1024;
+    int send_limit = 0;
     ofstream fout;
     double stime = MPI_Wtime();
     fout.open(outputFile.c_str(), ios::out | ios::binary);
@@ -1624,16 +1636,15 @@ void MapReduce<K,V>::rFinalKV(string(*outfunc)(KValue<K,V> k))
     {
         if(!finalQueue.empty())
         {
-            str=str+outfunc(finalQueue.front());
+            str=outfunc(finalQueue.front());
             finalQueue.pop();
         }
         else
             usleep(10);
         if (str.length() > send_limit)
         {
-            int length=str.length();
             char *buffer = strdup(str.c_str());
-            fout.write(buffer,length);
+            fout.write(buffer,str.length());
             str.clear();
         }
     }
@@ -1641,9 +1652,8 @@ void MapReduce<K,V>::rFinalKV(string(*outfunc)(KValue<K,V> k))
     int length=str.length();
     if (length>0)
     {
-        int length=str.length();
         char *buffer = strdup(str.c_str());
-        fout.write(buffer,length);
+        fout.write(buffer,str.length());
         str.clear();
     }
     fout.close();
@@ -1652,7 +1662,7 @@ void MapReduce<K,V>::rFinalKV(string(*outfunc)(KValue<K,V> k))
     double ftime = MPI_Wtime();
     double difftime=ftime-stime;
     cout<<"Rank :"<<rank<<" Time taken for local reduce : "<<difftime<<endl;
-    logobj.localLog("Time taken for local reduce : "+itos(difftime));
+    logobj.localLog("Time taken for local reduce : "+to_string(difftime));
     
     MPI_Status status;
     int flag,rvalue;
@@ -1660,16 +1670,16 @@ void MapReduce<K,V>::rFinalKV(string(*outfunc)(KValue<K,V> k))
     {
         rvalue=MPI_Send(NULL,0,MPI_INT,i,OK_TO_SEND,comm);
         if (rvalue!=0)
-            logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
+            logobj.localLog("Error : "+string(strerror(errno)) +"["+to_string(errno)+"]");
         
-        logobj.localLog("Sent OK_TO_Receive to process with rank "+itos(rank));
+        logobj.localLog("Sent OK_TO_Receive to process with rank "+to_string(rank));
         
         while(1)
         {
             rvalue=MPI_Iprobe(i, MPI_ANY_TAG,comm, &flag, &status);
         
             if (rvalue!=0)
-                logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
+                logobj.localLog("Error : "+string(strerror(errno)) +"["+to_string(errno)+"]");
             
             if (!flag){
                 usleep(10);
@@ -1681,14 +1691,14 @@ void MapReduce<K,V>::rFinalKV(string(*outfunc)(KValue<K,V> k))
             {
                 rvalue=MPI_Recv(&length,1,MPI_INT,i,FILE_PATH_LENGTH,comm,&status);
                 if(rvalue!=0)
-                    logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");            
+                    logobj.localLog("Error : "+string(strerror(errno)) +"["+to_string(errno)+"]");            
                 
                 char* buffer= new char[length];
                 rvalue=MPI_Recv(buffer,length,MPI_CHAR,i,FILE_PATH,comm,&status);
                 
                 if(rvalue!=0)
-                    logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");            
-                logobj.localLog("Received path of outputfile from :"+itos(i)+" Path is :"+ string(buffer));
+                    logobj.localLog("Error : "+string(strerror(errno)) +"["+to_string(errno)+"]");            
+                logobj.localLog("Received path of outputfile from :"+to_string(i)+" Path is :"+ string(buffer));
             
                 readAndAppend(buffer);
                 delete [] buffer;
@@ -1712,7 +1722,7 @@ void MapReduce<K,V>::readAndAppend(char *buffer)
     
     ofstream fout;
     fout.open(outputFile.c_str(),ios::out | ios::binary |ios::app);
-	logobj.localLog("Opening outfile file from remote process : "+string(strerror(errno))+" ["+itos(errno)+"]");
+	logobj.localLog("Opening outfile file from remote process : "+string(strerror(errno))+" ["+to_string(errno)+"]");
     if (length<=cutoff)
         cutoff=length;
     
@@ -1720,7 +1730,7 @@ void MapReduce<K,V>::readAndAppend(char *buffer)
     {
         char *buffer= new char[cutoff];
         fin.read(buffer,cutoff);
-        logobj.localLog("Reading for final KV Output transfer : No. of bytes read = "+itos((int)fin.gcount()));
+        logobj.localLog("Reading for final KV Output transfer : No. of bytes read = "+to_string((int)fin.gcount()));
         fout.write(buffer,cutoff);
         
         length-=cutoff;
@@ -1756,7 +1766,7 @@ int MapReduce<K,V>::reduce(void(*reducefunc)(MapReduce<K,V>*), string(*outfunc)(
         double fntime = MPI_Wtime();
         double difftime=fntime-sttime;
         cout<<"Rank :"<<rank<<" Time taken in user part of Reduce phase : "<<difftime<<endl;
-        logobj.localLog("Time taken in user part of reduce phase "+itos(difftime));   
+        logobj.localLog("Time taken in user part of reduce phase "+to_string(difftime));   
 
     }
     
@@ -1772,7 +1782,7 @@ int MapReduce<K,V>::reduce(void(*reducefunc)(MapReduce<K,V>*), string(*outfunc)(
     double ftime = MPI_Wtime();
     double difftime=ftime-stime;
     cout<<"Rank :"<<rank<<" Time taken in Reduce phase : "<<difftime<<endl;
-    logobj.localLog("Time taken in reduce phase "+itos(difftime));   
+    logobj.localLog("Time taken in reduce phase "+to_string(difftime));   
     logobj.localLog("##END of REDUCE phase##");
 }
 
