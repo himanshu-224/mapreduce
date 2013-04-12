@@ -1558,8 +1558,7 @@ void MapReduce<K,V>::finalKV(string(*outfunc)(KValue<K,V> k))
             usleep(10);
         if (str.length() > send_limit)
         {
-            char *buffer = strdup(str.c_str());
-            fout.write(buffer,str.length());
+            fout.write(str.c_str(),str.length());
             str.clear();
         }
     }
@@ -1567,8 +1566,7 @@ void MapReduce<K,V>::finalKV(string(*outfunc)(KValue<K,V> k))
     int length=str.length();
     if (length>0)
     {
-        char *buffer = strdup(str.c_str());
-        fout.write(buffer,str.length());
+        fout.write(str.c_str(),str.length());
         str.clear();
     }
     fout.close();
@@ -1643,8 +1641,7 @@ void MapReduce<K,V>::rFinalKV(string(*outfunc)(KValue<K,V> k))
             usleep(10);
         if (str.length() > send_limit)
         {
-            char *buffer = strdup(str.c_str());
-            fout.write(buffer,str.length());
+            fout.write(str.c_str(),str.length());
             str.clear();
         }
     }
@@ -1652,8 +1649,7 @@ void MapReduce<K,V>::rFinalKV(string(*outfunc)(KValue<K,V> k))
     int length=str.length();
     if (length>0)
     {
-        char *buffer = strdup(str.c_str());
-        fout.write(buffer,str.length());
+        fout.write(str.c_str(),str.length());
         str.clear();
     }
     fout.close();
