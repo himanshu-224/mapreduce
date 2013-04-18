@@ -45,7 +45,7 @@ bool sortbyFileSize(FileSize f1, FileSize f2)
 
 string extractIP(string str);
 
-createChunks::createChunks(int csize,string str,DataType type, string sep,string split,string dir, vector<string> flist, vector<string> dlist,int dbg)
+createChunks::createChunks(int csize,string str,DataType type, string sep,string split,string dir, vector<string> flist, vector<string> dlist,int dbg, int np)
     {
         chunkSize=csize;
         dirFile=str;
@@ -59,6 +59,7 @@ createChunks::createChunks(int csize,string str,DataType type, string sep,string
 		fileList=flist;
 		dirList=dlist;
 		debug=dbg;
+        nprocs=np;
         
     }
     
@@ -572,6 +573,8 @@ void createChunks::getIPList(string inputFile)
             nci.sizeAssigned=0;
 			nodeChunks.push_back(nci);
 		}
+        if (nodeChunks.size()==nprocs)
+            break;		
     }
     fin.close();
 }
