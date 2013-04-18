@@ -1071,11 +1071,11 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<string>,  Ma
     thread t3;
     if (rank<numReducers)
     {
-        t2 = thread(ReducerReceive<K,V>,this);
-        t3=thread(ReducerSort<K,V>,this);
+        //t2 = thread(ReducerReceive<K,V>,this);
+        //t3=thread(ReducerSort<K,V>,this);
     }
     MPI_Barrier(comm);  
-    
+    cout<<"Testing"<<endl;
     logobj.localLog("Start of map phase");
     string log;
     sendRankMapping();
@@ -1106,7 +1106,7 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<string>,  Ma
             logobj.localLog(log);
             log.clear();
             mapfunc(pathList,this);
-            finalisemap(hashfunc);
+            //finalisemap(hashfunc);
             /*Insert map Code here*/
         }
         else
@@ -1122,8 +1122,8 @@ int MapReduce<K,V>::map(int argc,char **argv, void(*mapfunc)(vector<string>,  Ma
     }
     if (rank<numReducers)
     {
-        t2.join();
-        t3.join();
+        //t2.join();
+        //t3.join();
     }
     return 1;
 }

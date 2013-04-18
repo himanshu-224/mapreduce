@@ -27,6 +27,7 @@
 #define END_MAP_TASK 5
 #define END_MAP 6
 #define NUM_SFILE 50
+#define FILEBUF_MAX 10240
 
 using namespace std;
 
@@ -72,7 +73,7 @@ public:
 	
 	void receivekv(int);
 	void sortfiles();
-	string getkvstr(ifstream& filep);
+	string getkvstr(ifstream* filep);
 	int getnkv(ifstream& filep);
 	
 	string getkvDir()
@@ -668,8 +669,10 @@ inline void KeyValue<int,int>::decodekv(KValue<int,int>  *k1, string str)
 	vector<string> vstr = split(str,'#');
 	k1->ksize = atoi(vstr[0].c_str());
 	k1->vsize = atoi(vstr[2].c_str());
-	if((k1->ksize!= sizeof(int))||(k1->vsize!=sizeof(int)))
+	if((k1->ksize!= sizeof(int))||(k1->vsize!=sizeof(int))){
+		cout<<str<<endl;
 		logobj.error("Incompatible key or value size for int key and int value.Exiting!!");
+	}
 	k1->key = atoi(vstr[1].c_str());
 	k1->value = atoi(vstr[3].substr(0,vstr[3].length()-1).c_str());
 	vstr.clear();
@@ -1015,15 +1018,15 @@ inline void KeyValue<string,string>::decodekv(KValue<string,string> *k1, string 
 }
 //Function to get the encoded string for each keyvalue pair from a file
 template <class K, class V>
-string KeyValue<K,V>::getkvstr(ifstream& filep)
+string KeyValue<K,V>::getkvstr(ifstream* filep)
 {
 	string str;
 	char c;
 	int bsize;
 	char *buffer;
-	while(filep.good())
+	while(filep->good())
 	{
-		c = filep.get();
+		c = filep->get();
 		if (c==':'){
 			bsize = atoi(str.c_str());
 			buffer = (char*)malloc(bsize);
@@ -1031,7 +1034,7 @@ string KeyValue<K,V>::getkvstr(ifstream& filep)
             {
                 logobj.error("Failed to allocate "+itos(bsize)+" bytes for buffer to get keyvalue string from file");
             }
-			filep.read(buffer,bsize);
+			filep->read(buffer,bsize);
 			str.clear();
 			str = string(buffer,bsize);
 			delete [] buffer;
@@ -1148,7 +1151,7 @@ void KeyValue<K,V>::copykv(KValue<K,V>  *k1, KValue<K,V>  k2)
 template <class K, class V>
 void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int nump2))
 {
-	logobj.localLog("Entered partitionkv");
+	//logobj.localLog("Entered partitionkv");
 	KValue<K,V>  *kvalue= new KValue<K,V> ;
 	vector<deque<KValue<K,V> >> tempkv;
 	vector<int> tempnkv(nump,0);
@@ -1158,6 +1161,8 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 	tempkv.resize(nump);
 	MPI_Request request;
 	int rvalue;
+	if(numkey == 0)
+		return;
 	if (nump ==1){
 		for(i=0;i<numkey;i++){
 			tempkv[0].push_back(kv.front());
@@ -1178,7 +1183,7 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 			tempnkv[hvalue]++;
 		}
 	}
-	logobj.localLog("KeyValue pair partitioned");
+	//logobj.localLog("KeyValue pair partitioned");
 	
 	string log;
 	int flag;
@@ -1187,9 +1192,9 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 	{
 		if(tempnkv[i] == 0)
 			continue;
-		log = "Sending signal to START keyvalue transfer to process:"+itos(i);
+		/*log = "Sending signal to START keyvalue transfer to process:"+itos(i);
 		logobj.localLog(log);
-		log.clear();
+		log.clear();*/
 		//rvalue=MPI_Send(&tempnkv[i],1,MPI_INT,i,NUM_KEY,comm);
 		rvalue=MPI_Isend(&tempnkv[i],1,MPI_INT,i,NUM_KEY,comm,&request);
 		while(1)
@@ -1211,9 +1216,9 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 			{
 				char *buffer = strdup(str.c_str());
 				len = str.length();
-				log = "Sending keyvalue pair to process:"+itos(i);
+				/*log = "Sending keyvalue pair to process:"+itos(i);
 				logobj.localLog(log);
-				log.clear();
+				log.clear();*/
 				//rvalue=MPI_Send(buffer,len,MPI_CHAR,i,KEYVALUE,comm);
 				rvalue=MPI_Isend(buffer,len,MPI_CHAR,i,KEYVALUE,comm,&request);
 				while(1)
@@ -1233,9 +1238,9 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 		if(!str.empty())
 		{
 			len = str.length();
-			log = "Sending keyvalue pair to process:"+itos(i);
+			/*log = "Sending keyvalue pair to process:"+itos(i);
 			logobj.localLog(log);
-			log.clear();
+			log.clear();*/
 			char *buffer = strdup(str.c_str());
 			//rvalue=MPI_Send(buffer,len,MPI_CHAR,i,KEYVALUE,comm);
 			rvalue=MPI_Isend(buffer,len,MPI_CHAR,i,KEYVALUE,comm,&request);
@@ -1250,9 +1255,9 @@ void KeyValue<K,V>::partitionkv(int nump, int numkey, int(*hashfunc)(K key, int 
 			if (rvalue!=0)
 				logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 		}
-		log = "Sending signal for END of maptask to process:"+itos(i);
+		/*log = "Sending signal for END of maptask to process:"+itos(i);
 		logobj.localLog(log);
-		log.clear();
+		log.clear();*/
 		//rvalue=MPI_Send(NULL,0,MPI_INT,i,END_MAP_TASK,comm);
 		rvalue=MPI_Isend(NULL,0,MPI_INT,i,END_MAP_TASK,comm,&request);
 		while(1)
@@ -1284,10 +1289,7 @@ void KeyValue<K,V>::receivekv(int nump)
 	recvcomp = 0;
 	vector<string> procfile;
 	procfile.resize(nump);
-	//vector<ofstream> procfp;
 	ofstream procfp;
-	//vector<int> proclen(nump,-1);
-	//procfp.resize(nump);
 	MPI_Status status;
 	int source,flag;
 	int nkv,rvalue,bufsize;
@@ -1297,7 +1299,6 @@ void KeyValue<K,V>::receivekv(int nump)
 		string err = "Error: Total number of map process is less than 1. Exiting!!";
 		logobj.error(err);
 	}
-	logobj.localLog("Variables defined in receivekv");
 	while(1)
 	{
 		rvalue = MPI_Iprobe(MPI_ANY_SOURCE,MPI_ANY_TAG,comm,&flag,&status);
@@ -1305,10 +1306,9 @@ void KeyValue<K,V>::receivekv(int nump)
 			logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 		source = status.MPI_SOURCE;
 		if (!flag){
-			usleep(100);
+			usleep(10);
 			continue;
 		}
-		logobj.localLog("Some message received");
 		switch(status.MPI_TAG)
 		{
 			case NUM_KEY:
@@ -1317,9 +1317,9 @@ void KeyValue<K,V>::receivekv(int nump)
 					err+="Exiting!!";
 					logobj.error(err);
 				}
-				msg = "Received start of keyvalue pair transfer for reducer from rank:" + itos(source);
+				/*msg = "Received start of keyvalue pair transfer for reducer from rank:" + itos(source);
 				logobj.localLog(msg);
-				msg.clear();
+				msg.clear();*/
 				procfile[source] = getfilename(this, source);
 				//procfp[source].open(procfile[source].c_str(), ios::out | ios::app | ios::binary);
 				rvalue = MPI_Recv(&nkv,1,MPI_INT,source,NUM_KEY,comm,&status);
@@ -1331,29 +1331,13 @@ void KeyValue<K,V>::receivekv(int nump)
 				procfp.close();
 				break;
 			
-			/*case SIZE_NXTMSG:
-				rvalue = MPI_Recv(&proclen[source],1,MPI_INT,source,SIZE_NXTMSG,comm,&status);
-                if (rvalue!=0)
-                    logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
-                msg = "Received SIZE of keyvalue pair from rank:"+itos(source);
-                logobj.localLog(msg);
-                msg.clear();
-				break;*/
-				
 			case KEYVALUE:
-				/*if(proclen[source] == -1){
-					string err;
-					err = "Receiving data from rank:"+itos(source)+" Could not receive size of data. Exiting!!";
-					logobj.error(err);
-				}*/
-				msg = "Received keyvalue pair from rank:"+itos(source);
+				/*msg = "Received keyvalue pair from rank:"+itos(source);
 				logobj.localLog(msg);
-				msg.clear();
+				msg.clear();*/
 				buffer = (char*)malloc(STR_MAX);
 				if (buffer==NULL)
-				{
-				logobj.error("Failed to allocate "+itos(STR_MAX)+" bytes for buffer to get keyvalue string from file");
-				}
+					logobj.error("Failed to allocate "+itos(STR_MAX)+" bytes for buffer to get keyvalue string from file");
 				rvalue = MPI_Recv(buffer,STR_MAX,MPI_CHAR,source,KEYVALUE,comm,&status);
 				if (rvalue!=0)
 					logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
@@ -1364,22 +1348,15 @@ void KeyValue<K,V>::receivekv(int nump)
 				procfp.write(buffer,bufsize);
 				procfp.close();
 				delete [] buffer;
-				//proclen[source] = -1;
 				break;
 				
 			case END_MAP_TASK:
-				/*if(proclen[source] != -1){
-					string err;
-					err = "Rank:"+itos(source)+" Could not receive some key value pair. Exiting!!";
-					logobj.error(err);
-				}*/
 				rvalue=MPI_Recv(NULL,0,MPI_INT,source,END_MAP_TASK,comm,&status);
 				if (rvalue!=0)
 					logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
-				//procfp[source].close();
-				msg = "Received End of map task message from rank:"+itos(source);
+				/*msg = "Received End of map task message from rank:"+itos(source);
 				logobj.localLog(msg);
-				msg.clear();
+				msg.clear();*/
 				filename.push_back(procfile[source]);
 				procfile[source].clear();
 				break;
@@ -1394,10 +1371,10 @@ void KeyValue<K,V>::receivekv(int nump)
 				if (rvalue!=0)
 					logobj.localLog("Error : "+string(strerror(errno)) +"["+itos(errno)+"]");
 				nump--;
-				msg = "Received end of map phase from rank:"+itos(source);
+				/*msg = "Received end of map phase from rank:"+itos(source);
 				msg+="\nNumber of process left is "+itos(nump);
 				logobj.localLog(msg);
-				msg.clear();
+				msg.clear();*/
 				if(nump==0){
 					recvcomp = 1;
 					logobj.localLog("\trecvcomp is set to be 1\t number of files = "+itos((int)filename.size()));
@@ -1419,48 +1396,49 @@ template <class K, class V>
 void KeyValue<K,V>::sortfiles()
 {
 	logobj.localLog("\tEntered sortfiles part");
-	string kvfilename[NUM_SFILE];
-	//ifstream kvfilep[NUM_SFILE];
-	ifstream kvfilep;
-	int kvpos[NUM_SFILE];
-	int nkv[NUM_SFILE],tnkv;
+	vector<string> kvfilename;
+	vector<ifstream *> kvfilep;
+	vector<int> kvpos;
+	vector<int> nkv;
+	int tnkv;
 	string newfile;
 	ofstream newfilep;
-	vector<KValue<K,V> > tempkv;
-	vector<int> index;
-	int i,minpos,numfiles;
-	string buffer;
+	vector<KValue<K,V>> tempkv;
+	int i,minpos,numfiles,j,k;
+	string buffer,stkvsize;
 	KValue<K,V>  temp;
     
 	logobj.localLog("\tVariables defined for sortfile part");
 	while(1){
 		if((filename.size() < NUM_SFILE) && (recvcomp == 0)){
-			usleep(100);
+			usleep(10);
 			continue;
 		}
 		numfiles = min((int)filename.size(),NUM_SFILE);
+		if(numfiles==0){
+			kvfile.clear();
+			logobj.localLog("No files present to sort.");
+			return;
+		}
 		logobj.localLog("\tStarted file sorting. recvcomp="+itos(recvcomp)+" and numfiles="+itos(numfiles));
-		//tempkv.resize(numfiles);
-		//index.resize(numfiles);
 		for(i=0;i<numfiles;i++){
-			kvfilename[i] = filename.front();
+			kvfilename.push_back(filename.front());
 			filename.pop_front();
-			//kvfilep[i].open(kvfilename[i].c_str());
+			kvpos.push_back(-1);
+			nkv.push_back(-1);
 		}
 		logobj.localLog("\tRead all filesname for sorting");
 		newfile = getfilename(this,me,me);
 		tnkv=0;
 		for(i=0;i<numfiles;i++){
-			kvfilep.open(kvfilename[i].c_str());
-			nkv[i] = getnkv(kvfilep);
+			ifstream* fp = new ifstream(kvfilename[i].c_str(), ios::in);
+			kvfilep.push_back(fp);
+			nkv[i] = getnkv(*fp);
 			tnkv+=nkv[i];
-			buffer = getkvstr(kvfilep);
-			//logobj.localLog("String to be decoded :::"+buffer+" from file::"+kvfilename[i]);
+			buffer = getkvstr(fp);
 			decodekv(&temp,buffer);
 			tempkv.push_back(temp);
-			index.push_back(i);
-			kvpos[i] = (int)kvfilep.tellg();
-			kvfilep.close();
+			kvpos[i] = (int)fp->tellg();
 			nkv[i]--;
 		}
 		logobj.localLog("\tRead atleast 1 keyvalue from each file");
@@ -1468,39 +1446,31 @@ void KeyValue<K,V>::sortfiles()
 		buffer = ""+itos(tnkv)+"\n";
 		newfilep.open(newfile.c_str(), ios::out | ios::binary);
 		newfilep.write(strdup(buffer.c_str()),buffer.length());
-		newfilep.close();
 		while(1){
 			minpos = distance(tempkv.begin(),min_element(tempkv.begin(),tempkv.end(),compkv));
-			//logobj.localLog("Minpos : "+itos(minpos));
 			buffer.clear();
-			//printkv(tempkv.at(minpos));
 			buffer = encodekv(tempkv.at(minpos));
-			newfilep.open(newfile.c_str(), ios::out | ios::app | ios::binary);
 			newfilep.write(strdup(buffer.c_str()),buffer.length());
-			newfilep.close();
 			buffer.clear();
-			if(nkv[index[minpos]]!=0){
-				//cout<<minpos<<"\t"<<index[minpos]<<endl;
-				kvfilep.open(kvfilename[index[minpos]].c_str());
-				kvfilep.seekg(kvpos[index[minpos]],ios::beg);
-				buffer = getkvstr(kvfilep);
-				//logobj.localLog("String to be decoded :::"+buffer+" from file::"+kvfilename[index[minpos]]);
+			if(nkv[minpos]!=0){
+				buffer = getkvstr(kvfilep[minpos]);
 				decodekv(&temp,buffer);
 				copykv(&tempkv[minpos],temp);
-				kvpos[index[minpos]] = (int)kvfilep.tellg();
-				kvfilep.close();
-				nkv[index[minpos]]--;
+				kvpos[minpos] = (int)kvfilep[minpos]->tellg();
+				nkv[minpos]--;
 			}
 			else{
 				tempkv.erase(tempkv.begin() + minpos);
-				remove(kvfilename[index[minpos]].c_str());
-				//logobj.localLog("Index -> size:"+itos(index.size()));
-				//logobj.localLog("Index -> minpos:"+itos(minpos));
-				index.erase(index.begin() + minpos);
-				//logobj.localLog("Read all keyvalue pair from "+kvfilename[index[minpos]]);
+				kvfilep[minpos]->close();
+				delete kvfilep[minpos];
+				kvfilep.erase(kvfilep.begin()+minpos);
+				remove(kvfilename[minpos].c_str());
+				kvfilename.erase(kvfilename.begin() + minpos);
+				kvpos.erase(kvpos.begin()+minpos);
+				nkv.erase(nkv.begin()+minpos);
 				if (tempkv.size() == 0){
 					newfilep.close();
-					filename.push_front(newfile);
+					filename.push_back(newfile);
 					break;
 				}
 			}
